@@ -221,7 +221,7 @@ export async function* walkFiles(
       if (IGNORED_DIRS.has(entry.name as string)) continue
       yield* walkFiles(fullPath, baseDir)
     } else if (entry.isFile() || entry.isSymbolicLink()) {
-      yield relative(baseDir, fullPath)
+      yield relative(baseDir, fullPath).replace(/\\/g, '/')
     }
   }
 }

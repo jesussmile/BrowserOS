@@ -119,7 +119,10 @@ describe('server artifact staging', () => {
 
     const bunPath = join(artifact.resourcesDir, 'bin/third_party/bun')
     expect(await readFile(bunPath, 'utf8')).toBe('#!/bin/sh\n')
-    expect((await stat(bunPath)).mode & 0o111).not.toBe(0)
+    // Windows filesystems do not reliably report POSIX executable bits.
+    if (process.platform !== 'win32') {
+      expect((await stat(bunPath)).mode & 0o111).not.toBe(0)
+    }
   })
 })
 

@@ -10,6 +10,21 @@ import {
 
 const TOOL_NAME = 'filesystem_bash'
 
+function killProcess(proc: ReturnType<typeof Bun.spawn>) {
+  if (process.platform === 'win32' && proc.pid) {
+    try {
+      Bun.spawnSync(['taskkill', '/pid', String(proc.pid), '/T', '/F'], {
+        stdout: 'ignore',
+        stderr: 'ignore',
+      })
+      return
+    } catch {
+      // Fall through to Bun's process kill when taskkill is unavailable.
+    }
+  }
+  proc.kill()
+}
+
 function getShellArgs(): [string, string] {
   if (process.platform === 'win32') return ['cmd.exe', '/c']
   return [process.env.SHELL || '/bin/sh', '-c']
@@ -42,7 +57,7 @@ export function createBashTool(cwd: string) {
         let timedOut = false
         const timer = setTimeout(() => {
           timedOut = true
-          proc.kill()
+          killProcess(proc)
         }, timeoutMs)
 
         const [stdoutText, stderrText] = await Promise.all([

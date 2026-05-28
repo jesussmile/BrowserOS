@@ -7,6 +7,7 @@ import type { FilesystemToolResult } from '../../../src/tools/filesystem/utils'
 
 let tmpDir: string
 let exec: (params: Record<string, unknown>) => Promise<FilesystemToolResult>
+const isWindows = process.platform === 'win32'
 
 beforeEach(async () => {
   tmpDir = join(
@@ -31,9 +32,13 @@ describe('filesystem_bash', () => {
   })
 
   it('returns output from pwd', async () => {
-    const result = await exec({ command: 'pwd' })
+    const result = await exec({ command: isWindows ? 'cd' : 'pwd' })
     expect(result.isError).toBeUndefined()
-    expect(result.text.trim()).toContain(tmpDir)
+    if (isWindows) {
+      expect(result.text.trim().toLowerCase()).toContain(tmpDir.toLowerCase())
+    } else {
+      expect(result.text.trim()).toContain(tmpDir)
+    }
   })
 
   it('captures stderr on failure', async () => {
@@ -49,25 +54,36 @@ describe('filesystem_bash', () => {
   })
 
   it('handles piped commands', async () => {
-    const result = await exec({ command: 'echo "a b c" | wc -w' })
+    const result = await exec({
+      command: isWindows
+        ? 'echo hello | findstr hello'
+        : 'echo "a b c" | wc -w',
+    })
     expect(result.isError).toBeUndefined()
-    expect(result.text.trim()).toBe('3')
+    expect(result.text.trim()).toBe(isWindows ? 'hello' : '3')
   })
 
   it('times out long-running commands', async () => {
-    const result = await exec({ command: 'exec sleep 30', timeout: 1 })
+    const result = await exec({
+      command: isWindows ? 'ping -n 30 127.0.0.1 > nul' : 'exec sleep 30',
+      timeout: 1,
+    })
     expect(result.isError).toBe(true)
     expect(result.text).toContain('timed out')
   }, 10_000)
 
   it('can create files', async () => {
-    await exec({ command: 'echo "created" > testfile.txt' })
+    await exec({
+      command: isWindows
+        ? 'echo created> testfile.txt'
+        : 'echo "created" > testfile.txt',
+    })
     const content = await readFile(join(tmpDir, 'testfile.txt'), 'utf-8')
     expect(content.trim()).toBe('created')
   })
 
   it('handles empty output commands', async () => {
-    const result = await exec({ command: 'true' })
+    const result = await exec({ command: isWindows ? 'cd . > nul' : 'true' })
     expect(result.isError).toBeUndefined()
     expect(result.text).toBe('(no output)')
   })
@@ -88,12 +104,14 @@ describe('filesystem_bash', () => {
       // biome-ignore lint/suspicious/noExplicitAny: test helper
       (subTool as any).execute(params)
 
-    const result = await subExec({ command: 'pwd' })
+    const result = await subExec({ command: isWindows ? 'cd' : 'pwd' })
     expect(result.text.trim()).toContain('subdir')
   })
 
   it('passes environment variables through', async () => {
-    const result = await exec({ command: 'echo $HOME' })
+    const result = await exec({
+      command: isWindows ? 'echo %USERPROFILE%' : 'echo $HOME',
+    })
     expect(result.isError).toBeUndefined()
     expect(result.text.trim().length).toBeGreaterThan(0)
   })

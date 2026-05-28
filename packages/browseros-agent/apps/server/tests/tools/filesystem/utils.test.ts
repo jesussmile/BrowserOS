@@ -189,8 +189,8 @@ describe('walkFiles', () => {
       files.push(f)
     }
     expect(files).toContain('root.txt')
-    expect(files).toContain(join('a', 'mid.txt'))
-    expect(files).toContain(join('a', 'b', 'deep.txt'))
+    expect(files).toContain('a/mid.txt')
+    expect(files).toContain('a/b/deep.txt')
   })
 
   it('skips node_modules', async () => {

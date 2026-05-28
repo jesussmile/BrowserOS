@@ -4,6 +4,7 @@
  */
 
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import { join } from 'node:path'
 
 const config = {
   cdpPort: 9222,
@@ -76,7 +77,7 @@ describe('Application.start', () => {
       await app.start()
 
       expect(initializeDb).toHaveBeenCalledWith({
-        dbPath: '/tmp/browseros-dogfood/db/browseros.sqlite',
+        dbPath: join('/tmp/browseros-dogfood', 'db', 'browseros.sqlite'),
         resourcesDir: config.resourcesDir,
       })
     } finally {

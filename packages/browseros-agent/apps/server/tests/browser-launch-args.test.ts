@@ -16,6 +16,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { killBrowser, spawnBrowser } from './__helpers__/browser'
 
+const posixIt = process.platform === 'win32' ? it.skip : it
+
 async function waitForFile(path: string): Promise<void> {
   for (let attempt = 0; attempt < 50; attempt++) {
     if (existsSync(path)) {
@@ -31,7 +33,7 @@ describe('spawnBrowser', () => {
     await killBrowser()
   })
 
-  it('uses the dev dock icon for server test browsers', async () => {
+  posixIt('uses the dev dock icon for server test browsers', async () => {
     const tempDir = mkdtempSync(join(tmpdir(), 'browseros-launch-args-'))
     const argsPath = join(tempDir, 'args.txt')
     const binaryPath = join(tempDir, 'browseros-fake')
