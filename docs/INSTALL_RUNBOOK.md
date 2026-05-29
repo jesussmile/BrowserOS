@@ -72,6 +72,23 @@ Current release evidence captured on 2026-05-28 from the official GitHub API:
 
 Before installing, re-check GitHub Releases because release assets can change.
 
+Download-only preparation evidence captured on this Windows machine at 2026-05-28 20:29:46 -05:00:
+
+- Download path: `%TEMP%\BrowserOS_v0.44.0.1_x64_installer.exe`
+- Download size: `144246328` bytes
+- Local SHA-256: `DDA9ACBB40D40AB11680B2C7DC87D3BACA189B6ADD92475B9634DB4C137A1B7C`
+- The SHA-256 value above is locally computed for this downloaded file; it is not an upstream-published checksum.
+- The installer was downloaded for validation prep only and was not executed.
+
+To repeat the download-only check without running the installer:
+
+```powershell
+$url = 'https://github.com/browseros-ai/BrowserOS/releases/download/v0.44.0.1/BrowserOS_v0.44.0.1_x64_installer.exe'
+$out = Join-Path $env:TEMP 'BrowserOS_v0.44.0.1_x64_installer.exe'
+Invoke-WebRequest -Uri $url -OutFile $out
+Get-FileHash -Algorithm SHA256 -LiteralPath $out
+```
+
 After BrowserOS is installed:
 
 1. Launch BrowserOS.
