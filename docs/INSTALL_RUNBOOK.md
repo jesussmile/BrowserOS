@@ -78,6 +78,8 @@ Download-only preparation evidence captured on this Windows machine at 2026-05-2
 - Download size: `144246328` bytes
 - Local SHA-256: `DDA9ACBB40D40AB11680B2C7DC87D3BACA189B6ADD92475B9634DB4C137A1B7C`
 - The SHA-256 value above is locally computed for this downloaded file; it is not an upstream-published checksum.
+- Windows Authenticode status: `Valid` (`Signature verified.`)
+- Windows Authenticode signer: `Felafax, Inc.`
 - The installer was downloaded for validation prep only and was not executed.
 
 To repeat the download-only check without running the installer:
@@ -87,6 +89,7 @@ $url = 'https://github.com/browseros-ai/BrowserOS/releases/download/v0.44.0.1/Br
 $out = Join-Path $env:TEMP 'BrowserOS_v0.44.0.1_x64_installer.exe'
 Invoke-WebRequest -Uri $url -OutFile $out
 Get-FileHash -Algorithm SHA256 -LiteralPath $out
+Get-AuthenticodeSignature -LiteralPath $out
 ```
 
 After BrowserOS is installed:
