@@ -1,56 +1,57 @@
-/**
- * @public
- */
-export const docsUrl = 'https://docs.browseros.com/'
+import { defaultProductConfig } from './productConfig'
 
 /**
  * @public
  */
-export const productWebUrl = 'https://browseros.com'
+export const docsUrl = defaultProductConfig.docsUrl
 
 /**
  * @public
  */
-export const productRepositoryUrl = 'https://github.com/browseros-ai/BrowserOS'
+export const productWebUrl = defaultProductConfig.productWebUrl
 
 /**
  * @public
  */
-export const githubOrgUrl = 'https://github.com/browseros-ai'
+export const productRepositoryUrl = defaultProductConfig.productRepositoryUrl
 
 /**
  * @public
  */
-export const privacyPolicyUrl = 'https://browseros.com/privacy'
+export const githubOrgUrl = defaultProductConfig.githubOrgUrl
 
 /**
  * @public
  */
-export const contributorsUrl =
-  'https://github.com/browseros-ai/BrowserOS/graphs/contributors'
+export const privacyPolicyUrl = defaultProductConfig.privacyPolicyUrl
 
 /**
  * @public
  */
-export const discordUrl = 'https://discord.gg/browseros'
+export const contributorsUrl = defaultProductConfig.contributorsUrl
 
 /**
  * @public
  */
-export const slackUrl = 'https://dub.sh/browserOS-slack'
+export const discordUrl = defaultProductConfig.discordUrl
 
 /**
  * @public
  */
-export const productVideoUrl = 'https://youtu.be/J-lFhTP-7is'
+export const slackUrl = defaultProductConfig.slackUrl
 
 /**
  * @public
  */
-export const productRepositoryShortUrl = 'https://git.new/browseros'
+export const productVideoUrl = defaultProductConfig.productVideoUrl
 
 /**
  * @public
  */
-export const scheduledTasksHelpUrl =
-  'https://docs.browseros.com/features/scheduled-tasks'
+export const productRepositoryShortUrl =
+  defaultProductConfig.productRepositoryShortUrl
+
+/**
+ * @public
+ */
+export const scheduledTasksHelpUrl = defaultProductConfig.scheduledTasksHelpUrl

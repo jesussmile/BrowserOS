@@ -2,6 +2,7 @@ import { sentryVitePlugin } from '@sentry/vite-plugin'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'wxt'
 import { LEGACY_AGENT_EXTENSION_ID } from './lib/constants/legacyAgentExtensionId'
+import { resolveProductConfig } from './lib/constants/productConfig'
 import { PRODUCT_WEB_HOST } from './lib/constants/productWebHost'
 
 // biome-ignore lint/style/noProcessEnv: build config file needs env access
@@ -13,6 +14,7 @@ const apiUrl = new URL(
 const apiPattern = apiUrl.port
   ? `${apiUrl.hostname}:${apiUrl.port}`
   : apiUrl.hostname
+const productConfig = resolveProductConfig(env)
 
 // See https://wxt.dev/api/config.html
 // Extension ID will be bflpfmnmnokmjhmgnolecpppdbdophmk
@@ -23,11 +25,13 @@ export default defineConfig({
     // Private fork note: this is the central extension manifest surface for
     // future reviewed branding work. Preserve BrowserOS attribution and avoid
     // scattering product-name changes through the UI.
-    name: 'Assistant',
+    name: productConfig.extensionName,
     key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvBDAaDRvv61NpBeLR8etBRw82lv9VJO3sz/mA26gDzWKtVuzW4DXCl8Zfj5oWmoXLTfv3aiTigUXo/LHOoGpSucEVroMmAc7cgu2KuQ1fZPpMvYa0npD/m4h89360q8Oz0oKKaZGS905IJ04M2IkF4CuU3YEHFJBWb+cUyK9H8YVugelYbPD0IVs63T1SkGbh/t/Tfb2DpkinduSO8+x26sKydm30SRt+iZ2+7Nolcdum3LExInUiX2Pgb65Jb+mVw8NqyTVJyCEp8uq0cSHomWFQirSJ80tsDhISp4btwaRKHrXqovQx9XHQv4hCd+3LuB830eUEVMUNuCO+OyPxQIDAQAB',
     // Private fork packaging should use a reviewed internal update channel or
     // omit update wiring; do not ship BrowserOS CDN updates for private builds.
-    update_url: 'https://cdn.browseros.com/extensions/update-manifest.xml',
+    ...(productConfig.extensionUpdateUrl
+      ? { update_url: productConfig.extensionUpdateUrl }
+      : {}),
     // update_url: 'https://cdn.browseros.com/extensions/update-manifest.alpha.xml',
     externally_connectable: {
       matches: [`https://${apiPattern}/*`, `https://*.${apiPattern}/*`],
@@ -57,7 +61,7 @@ export default defineConfig({
         128: 'icon/128.png',
       },
       // Private fork note: keep this as an explicit future branding touchpoint.
-      default_title: 'Ask BrowserOS',
+      default_title: productConfig.extensionToolbarTitle,
     },
     permissions: [
       'topSites',

@@ -17,6 +17,20 @@ bun install
 bun run build:agent
 ```
 
+For a private unpacked build that does not include the BrowserOS public extension update URL:
+
+```bash
+BROWSEROS_PRIVATE_DISABLE_UPDATE_URL=true bun run build:agent
+```
+
+On PowerShell:
+
+```powershell
+$env:BROWSEROS_PRIVATE_DISABLE_UPDATE_URL='true'
+bun run build:agent
+Remove-Item Env:BROWSEROS_PRIVATE_DISABLE_UPDATE_URL
+```
+
 The built extension is written to:
 
 ```text

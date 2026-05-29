@@ -23,10 +23,13 @@ Primary agent touchpoints:
 
 The first private branding/config layer should be a small typed module consumed by app surfaces that already centralize product metadata.
 
-Recommended future files:
+Initial implementation file:
+
+- `packages/browseros-agent/apps/agent/lib/constants/productConfig.ts`
+
+Recommended future files if the server or shared packages need the same values:
 
 - `packages/browseros-agent/packages/shared/src/private-product-config.ts`
-- `packages/browseros-agent/apps/agent/lib/private-product-config.ts`
 - `packages/browseros-agent/apps/server/src/lib/private-product-config.ts`
 
 Start with values that are safe to commit:
@@ -63,6 +66,20 @@ Do not include:
 Private builds must not silently use the BrowserOS public extension update channel.
 
 For early internal builds, prefer `updateUrl: null` so the generated extension has no update URL. Add a private update URL only after the team has an approved hosting, signing, and release process.
+
+For the current agent build, set this before `bun run build:agent` to omit the public BrowserOS extension update URL:
+
+```bash
+BROWSEROS_PRIVATE_DISABLE_UPDATE_URL=true bun run build:agent
+```
+
+On PowerShell:
+
+```powershell
+$env:BROWSEROS_PRIVATE_DISABLE_UPDATE_URL='true'
+bun run build:agent
+Remove-Item Env:BROWSEROS_PRIVATE_DISABLE_UPDATE_URL
+```
 
 ## Attribution Policy
 

@@ -1,4 +1,6 @@
+import { defaultProductConfig } from './productConfig'
+
 /**
  * @public
  */
-export const PRODUCT_WEB_HOST = 'browseros.com'
+export const PRODUCT_WEB_HOST = defaultProductConfig.productWebHost
