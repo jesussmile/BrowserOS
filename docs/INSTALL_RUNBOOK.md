@@ -39,7 +39,9 @@ packages/browseros-agent/apps/agent/dist/chrome-mv3
 
 ## Load the Extension Locally
 
-In Chrome, Chromium, or BrowserOS:
+Use BrowserOS for full local validation because the agent manifest includes BrowserOS-specific extension permissions.
+
+In BrowserOS:
 
 1. Open `chrome://extensions`.
 2. Enable Developer mode.
@@ -47,6 +49,8 @@ In Chrome, Chromium, or BrowserOS:
 4. Select `packages/browseros-agent/apps/agent/dist/chrome-mv3`.
 
 For full functionality, the BrowserOS server must also be running locally and reachable by the extension.
+
+Stock Google Chrome is useful for checking generic Manifest V3 packaging, but it is not the target host for this extension. If Chrome rejects or ignores the unpacked build, validate in BrowserOS before changing manifest permissions.
 
 ## Start the Local Server
 
@@ -78,3 +82,18 @@ Every install validation should record:
 - Whether the server was running locally.
 - Any disabled update channel or private update URL.
 - Screenshots or notes for install errors.
+
+## Local Validation: 2026-05-28
+
+On this Windows machine:
+
+- `BROWSEROS_PRIVATE_DISABLE_UPDATE_URL=true bun run build:agent`: passed.
+- Generated manifest check: `manifest_version` was `3`, extension name was `Assistant`, toolbar title was `Ask BrowserOS`, and `update_url` was absent.
+- Temporary stock Chrome launch with `--load-extension=packages/browseros-agent/apps/agent/dist/chrome-mv3`: did not register the unpacked BrowserOS agent extension in the temporary profile.
+- Chrome logs showed Google Chrome ignored `--disable-extensions-except`; DevTools only exposed Chrome component extension targets, not the BrowserOS agent.
+- Windows uninstall registry and standard install paths did not show a local BrowserOS installation.
+
+Next install validation requires either:
+
+- Installing BrowserOS locally and loading the unpacked agent extension there, or
+- Creating a separate Chrome-only test manifest variant that intentionally omits BrowserOS-specific permissions and APIs.
