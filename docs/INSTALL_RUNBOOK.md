@@ -52,6 +52,35 @@ For full functionality, the BrowserOS server must also be running locally and re
 
 Stock Google Chrome is useful for checking generic Manifest V3 packaging, but it is not the target host for this extension. If Chrome rejects or ignores the unpacked build, validate in BrowserOS before changing manifest permissions.
 
+## Install BrowserOS as the Validation Host
+
+Do not install BrowserOS automatically from scripts in this private repo. Install it manually only after the team approves using the upstream public binary for local validation.
+
+Authoritative upstream references:
+
+- Download page: `https://browseros.com`
+- GitHub Releases: `https://github.com/browseros-ai/BrowserOS/releases`
+- Existing upstream Windows update doc: `docs/update/windows.mdx`
+
+Current release evidence captured on 2026-05-28 from the official GitHub API:
+
+- Latest release: `BrowserOS - v0.44.0`
+- Tag: `v0.44.0.1`
+- Release URL: `https://github.com/browseros-ai/BrowserOS/releases/tag/v0.44.0.1`
+- Windows installer asset: `BrowserOS_v0.44.0.1_x64_installer.exe`
+- Windows installer URL: `https://github.com/browseros-ai/BrowserOS/releases/download/v0.44.0.1/BrowserOS_v0.44.0.1_x64_installer.exe`
+
+Before installing, re-check GitHub Releases because release assets can change.
+
+After BrowserOS is installed:
+
+1. Launch BrowserOS.
+2. Open `chrome://extensions`.
+3. Enable Developer mode.
+4. Load the private no-update build from `packages/browseros-agent/apps/agent/dist/chrome-mv3`.
+5. Confirm the extension loads and the toolbar title is `Ask BrowserOS`.
+6. Start the local server and verify the side panel can connect.
+
 ## Start the Local Server
 
 From `packages/browseros-agent`:
