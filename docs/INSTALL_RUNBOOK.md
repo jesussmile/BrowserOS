@@ -160,10 +160,14 @@ On this Windows machine:
 - `http://127.0.0.1:9200/health` returned `status: ok` and `cdpConnected: true`.
 - Temporary validation launch used `%LOCALAPPDATA%\Chromium\Application\chrome.exe` with a temporary profile and `--load-extension=packages/browseros-agent/apps/agent/dist/chrome-mv3`.
 - DevTools reported one extension service worker target for `chrome-extension://bflpfmnmnokmjhmgnolecpppdbdophmk/background.js`.
+- The normal BrowserOS `Default` profile already contained the upstream bundled `Assistant` extension at version `0.0.102.0`.
+- The bundled `Assistant` extension manifest in the normal profile included `update_url=https://cdn.browseros.com/extensions/update-manifest.xml`.
+- The private no-update extension was validated in a temporary profile; it was not used to replace the bundled `Assistant` extension in the normal profile.
 
 Remaining validation:
 
 - Open BrowserOS interactively.
+- Decide whether to disable/remove the bundled upstream `Assistant` extension in the normal profile for private-extension validation.
 - Load the private no-update extension from `packages/browseros-agent/apps/agent/dist/chrome-mv3` into the normal BrowserOS profile through `chrome://extensions`.
 - Confirm the toolbar title is `Ask BrowserOS`.
 - Confirm the side panel can talk to the local BrowserOS server on `http://127.0.0.1:9200`.
