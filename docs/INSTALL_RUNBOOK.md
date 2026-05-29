@@ -146,3 +146,24 @@ Next install validation requires either:
 
 - Installing BrowserOS locally and loading the unpacked agent extension there, or
 - Creating a separate Chrome-only test manifest variant that intentionally omits BrowserOS-specific permissions and APIs.
+
+## BrowserOS Install Validation: 2026-05-28
+
+On this Windows machine:
+
+- Upstream BrowserOS installer `BrowserOS_v0.44.0.1_x64_installer.exe` was launched manually from `%TEMP%`.
+- Windows registered `BrowserOS` version `146.0.7821.31`.
+- Install location: `%LOCALAPPDATA%\Chromium\Application`
+- Uninstall command: `%LOCALAPPDATA%\Chromium\Application\146.0.7821.31\Installer\setup.exe --uninstall`
+- BrowserOS server process was running from `%LOCALAPPDATA%\Chromium\User Data\.browseros\versions\0.0.82\resources\bin\browseros_server.exe`.
+- `server_config.json` reported BrowserOS version `0.44.0.1`, Chromium version `146.0.7821.31`, CDP port `9101`, server port `9200`, and extension port `9300`.
+- `http://127.0.0.1:9200/health` returned `status: ok` and `cdpConnected: true`.
+- Temporary validation launch used `%LOCALAPPDATA%\Chromium\Application\chrome.exe` with a temporary profile and `--load-extension=packages/browseros-agent/apps/agent/dist/chrome-mv3`.
+- DevTools reported one extension service worker target for `chrome-extension://bflpfmnmnokmjhmgnolecpppdbdophmk/background.js`.
+
+Remaining validation:
+
+- Open BrowserOS interactively.
+- Load the private no-update extension from `packages/browseros-agent/apps/agent/dist/chrome-mv3` into the normal BrowserOS profile through `chrome://extensions`.
+- Confirm the toolbar title is `Ask BrowserOS`.
+- Confirm the side panel can talk to the local BrowserOS server on `http://127.0.0.1:9200`.
