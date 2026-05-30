@@ -171,3 +171,21 @@ Remaining validation:
 - Load the private no-update extension from `packages/browseros-agent/apps/agent/dist/chrome-mv3` into the normal BrowserOS profile through `chrome://extensions`.
 - Confirm the toolbar title is `Ask BrowserOS`.
 - Confirm the side panel can talk to the local BrowserOS server on `http://127.0.0.1:9200`.
+
+## Clean Official Reinstall: 2026-05-30
+
+On this Windows machine:
+
+- The current BrowserOS profile was backed up before reset to `%LOCALAPPDATA%\BrowserOS-backups\User Data-20260530-085154`.
+- The active pre-reset profile was moved aside to `%LOCALAPPDATA%\BrowserOS-backups\User Data-active-profile-before-clean-install-20260530-085317`.
+- BrowserOS was uninstalled using the registered user-level uninstaller.
+- The official upstream Windows installer `BrowserOS_v0.44.0.1_x64_installer.exe` was downloaded again from the latest GitHub release.
+- Download size matched the release asset at `144246328` bytes.
+- Local SHA-256 was `DDA9ACBB40D40AB11680B2C7DC87D3BACA189B6ADD92475B9634DB4C137A1B7C`.
+- Windows Authenticode status was `Valid`, signed by `Felafax, Inc.`
+- BrowserOS reinstalled as version `146.0.7821.31` at `%LOCALAPPDATA%\Chromium\Application`.
+- The new `server_config.json` reported BrowserOS version `0.44.0.1`, Chromium version `146.0.7821.31`, CDP port `9101`, server port `9200`, extension port `9300`, and a new install ID.
+- `http://127.0.0.1:9200/health` returned `status: ok` and `cdpConnected: true`.
+- The bundled `Assistant` extension was present at version `0.0.102.0` with `update_url=https://cdn.browseros.com/extensions/update-manifest.xml`.
+- Extension storage was fresh: no local conversations and no stored BrowserOS account session.
+- The private no-update extension build from this repository was not loaded into the clean official profile.
