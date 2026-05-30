@@ -16,12 +16,14 @@ describe('route-utils', () => {
     expect(shouldUseChatSession('/home', true)).toBe(true)
     expect(shouldUseChatSession('/home/agents/main')).toBe(false)
     expect(shouldUseChatSession('/home/chat')).toBe(true)
+    expect(shouldUseChatSession('/home/chat/history')).toBe(true)
   })
 
   it('hides the focus grid on full-screen routes', () => {
     expect(shouldHideFocusGrid('/home')).toBe(true)
     expect(shouldHideFocusGrid('/home/agents/main')).toBe(true)
     expect(shouldHideFocusGrid('/home/chat')).toBe(true)
+    expect(shouldHideFocusGrid('/home/chat/history')).toBe(true)
     expect(shouldHideFocusGrid('/home/personalize')).toBe(false)
   })
 })

@@ -1,4 +1,8 @@
-const HIDE_FOCUS_GRID_PATHS = new Set(['/home', '/home/chat'])
+const HIDE_FOCUS_GRID_PATHS = new Set([
+  '/home',
+  '/home/chat',
+  '/home/chat/history',
+])
 
 export function isAgentCommandPath(pathname: string): boolean {
   return pathname === '/home' || isAgentConversationPath(pathname)
@@ -19,6 +23,8 @@ export function shouldUseChatSession(
   useChatSessionOnHome = false,
 ): boolean {
   return (
-    pathname === '/home/chat' || (useChatSessionOnHome && pathname === '/home')
+    pathname === '/home/chat' ||
+    pathname === '/home/chat/history' ||
+    (useChatSessionOnHome && pathname === '/home')
   )
 }

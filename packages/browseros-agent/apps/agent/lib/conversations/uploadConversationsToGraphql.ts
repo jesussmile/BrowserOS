@@ -1,7 +1,7 @@
 import { execute } from '@/lib/graphql/execute'
 import { sessionStorage } from '../auth/sessionStorage'
 import { sentry } from '../sentry/sentry'
-import { type Conversation, conversationStorage } from './conversationStorage'
+import type { Conversation } from './conversationStorage'
 import {
   BulkCreateConversationMessagesDocument,
   ConversationExistsDocument,
@@ -23,8 +23,6 @@ export async function uploadConversationsToGraphql(
   const profileId = profileResult.profileByUserId?.rowId
   if (!profileId) return
 
-  const uploadedIds: string[] = []
-
   for (const conversation of conversations) {
     try {
       const existsResult = await execute(ConversationExistsDocument, {
@@ -40,7 +38,6 @@ export async function uploadConversationsToGraphql(
         uploadedCount = countResult.conversationMessages?.totalCount ?? 0
 
         if (uploadedCount >= conversation.messages.length) {
-          uploadedIds.push(conversation.id)
           continue
         }
       } else {
@@ -75,8 +72,6 @@ export async function uploadConversationsToGraphql(
           })
         }
       }
-
-      uploadedIds.push(conversation.id)
     } catch (error) {
       sentry.captureException(error, {
         extra: {
@@ -87,8 +82,6 @@ export async function uploadConversationsToGraphql(
     }
   }
 
-  if (uploadedIds.length > 0) {
-    const remaining = conversations.filter((c) => !uploadedIds.includes(c.id))
-    conversationStorage.setValue(remaining)
-  }
+  // Keep uploaded conversations in local extension storage. Remote history is
+  // best-effort sync; the local copy is the durable fallback for this browser.
 }

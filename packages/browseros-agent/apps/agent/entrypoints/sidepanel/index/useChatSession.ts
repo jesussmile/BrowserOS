@@ -195,6 +195,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const [disliked, setDisliked] = useState<Record<string, boolean>>({})
   const [conversationId, setConversationId] = useState(crypto.randomUUID())
   const conversationIdRef = useRef(conversationId)
+  const skipLatestRestoreRef = useRef(searchParams.has('q'))
+  const restoredLatestConversationRef = useRef(false)
+  const [isRestoringLatestConversation, setIsRestoringLatestConversation] =
+    useState(false)
 
   useEffect(() => {
     conversationIdRef.current = conversationId
@@ -459,6 +463,50 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     }
   }, [conversationIdParam, remoteConversationData, isLoggedIn])
 
+  useEffect(() => {
+    if (
+      conversationIdParam ||
+      skipLatestRestoreRef.current ||
+      restoredLatestConversationRef.current ||
+      messagesRef.current.length > 0
+    ) {
+      return
+    }
+
+    restoredLatestConversationRef.current = true
+    let cancelled = false
+    setIsRestoringLatestConversation(true)
+
+    conversationStorage
+      .getValue()
+      .then((conversations) => {
+        if (cancelled) return
+        const latestConversation = [...(conversations ?? [])]
+          .filter((conversation) => conversation.messages.length > 0)
+          .sort((a, b) => b.lastMessagedAt - a.lastMessagedAt)[0]
+
+        if (!latestConversation) return
+
+        setConversationId(
+          latestConversation.id as ReturnType<typeof crypto.randomUUID>,
+        )
+        setMessages(latestConversation.messages)
+        if (isLoggedIn) {
+          markMessagesAsSaved(
+            latestConversation.id,
+            latestConversation.messages,
+          )
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsRestoringLatestConversation(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [conversationIdParam, isLoggedIn, markMessagesAsSaved, setMessages])
+
   // Keep messagesRef in sync on every change (cheap ref assignment)
   useEffect(() => {
     messagesRef.current = messages
@@ -671,7 +719,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   }
 
   const isRestoringConversation =
-    !!conversationIdParam && restoredConversationId !== conversationIdParam
+    (!!conversationIdParam && restoredConversationId !== conversationIdParam) ||
+    isRestoringLatestConversation
 
   return {
     mode,

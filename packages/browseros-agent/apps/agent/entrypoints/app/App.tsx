@@ -1,5 +1,6 @@
 import type { FC } from 'react'
 import { HashRouter, Navigate, Route, Routes, useParams } from 'react-router'
+import { ChatHistory } from '@/entrypoints/sidepanel/history/ChatHistory'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import { NewTab } from '../newtab/index/NewTab'
@@ -96,6 +97,7 @@ export const App: FC = () => {
                   />
                 </Route>
                 <Route path="chat" element={<NewTabChat />} />
+                <Route path="chat/history" element={<ChatHistory />} />
                 <Route path="personalize" element={<Personalize />} />
               </>
             ) : (

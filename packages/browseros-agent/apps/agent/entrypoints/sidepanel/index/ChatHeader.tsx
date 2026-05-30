@@ -31,6 +31,8 @@ interface ChatHeaderProps {
   onNewConversation: () => void
   hasMessages: boolean
   hideHistory?: boolean
+  historyPath?: string
+  newConversationPath?: string
 }
 
 export const ChatHeader: FC<ChatHeaderProps> = ({
@@ -40,6 +42,8 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
   onNewConversation,
   hasMessages,
   hideHistory,
+  historyPath = '/history',
+  newConversationPath = '/',
 }) => {
   const location = useLocation()
   const navigate = useNavigate()
@@ -47,7 +51,7 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
 
   const handleNewConversationFromHistory = () => {
     onNewConversation()
-    navigate('/')
+    navigate(newConversationPath)
   }
 
   return (
@@ -106,7 +110,7 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
             </button>
           ) : (
             <Link
-              to="/history"
+              to={historyPath}
               className="cursor-pointer rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
               title="Chat history"
             >
