@@ -493,10 +493,12 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     const messagesToSave = messages.filter((m) => m.parts?.length > 0)
     if (messagesToSave.length === 0) return
 
+    // Keep a local copy even when cloud sync is enabled so session loss or
+    // remote-save failures do not make completed chats disappear.
+    saveLocalConversation(conversationIdRef.current, messagesToSave)
+
     if (isLoggedIn) {
       saveRemoteConversation(conversationIdRef.current, messagesToSave)
-    } else {
-      saveLocalConversation(conversationIdRef.current, messagesToSave)
     }
 
     invalidateCredits()
