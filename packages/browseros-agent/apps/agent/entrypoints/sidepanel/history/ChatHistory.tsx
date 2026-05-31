@@ -20,7 +20,16 @@ import {
 } from './graphql/chatHistoryDocument'
 import { LocalChatHistory } from './local/LocalChatHistory'
 
-const RemoteChatHistory: FC<{ userId: string }> = ({ userId }) => {
+interface ChatHistoryRouteProps {
+  conversationPath?: string
+  newConversationPath?: string
+}
+
+const RemoteChatHistory: FC<ChatHistoryRouteProps & { userId: string }> = ({
+  userId,
+  conversationPath,
+  newConversationPath,
+}) => {
   const { conversationId: activeConversationId } = useChatSessionContext()
   const queryClient = useQueryClient()
 
@@ -114,19 +123,35 @@ const RemoteChatHistory: FC<{ userId: string }> = ({ userId }) => {
       isFetchingNextPage={isFetchingNextPage}
       onLoadMore={fetchNextPage}
       isRefreshing={isFetching && !isLoadingConversations}
+      conversationPath={conversationPath}
+      newConversationPath={newConversationPath}
     />
   )
 }
 
-export const ChatHistory: FC = () => {
+export const ChatHistory: FC<ChatHistoryRouteProps> = ({
+  conversationPath,
+  newConversationPath,
+}) => {
   const { sessionInfo } = useSessionInfo()
   const userId = sessionInfo.user?.id
   // needed to initiate remote-sync
   useConversations()
 
   if (userId) {
-    return <RemoteChatHistory userId={userId} />
+    return (
+      <RemoteChatHistory
+        userId={userId}
+        conversationPath={conversationPath}
+        newConversationPath={newConversationPath}
+      />
+    )
   }
 
-  return <LocalChatHistory />
+  return (
+    <LocalChatHistory
+      conversationPath={conversationPath}
+      newConversationPath={newConversationPath}
+    />
+  )
 }

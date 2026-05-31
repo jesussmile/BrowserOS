@@ -6,7 +6,15 @@ import { ConversationList } from '../components/ConversationList'
 import type { HistoryConversation } from '../components/types'
 import { extractLastUserMessage, groupConversations } from '../components/utils'
 
-export const LocalChatHistory: FC = () => {
+interface LocalChatHistoryProps {
+  conversationPath?: string
+  newConversationPath?: string
+}
+
+export const LocalChatHistory: FC<LocalChatHistoryProps> = ({
+  conversationPath,
+  newConversationPath,
+}) => {
   const { conversations: localConversations, removeConversation } =
     useConversations()
   const { conversationId: activeConversationId } = useChatSessionContext()
@@ -29,6 +37,8 @@ export const LocalChatHistory: FC = () => {
       groupedConversations={groupedConversations}
       activeConversationId={activeConversationId}
       onDelete={removeConversation}
+      conversationPath={conversationPath}
+      newConversationPath={newConversationPath}
     />
   )
 }

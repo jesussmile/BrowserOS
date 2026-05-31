@@ -9,6 +9,8 @@ interface ConversationListProps {
   groupedConversations: GroupedConversations
   activeConversationId: string
   onDelete?: (id: string) => void
+  conversationPath?: string
+  newConversationPath?: string
   hasNextPage?: boolean
   isFetchingNextPage?: boolean
   onLoadMore?: () => void
@@ -19,6 +21,8 @@ export const ConversationList: FC<ConversationListProps> = ({
   groupedConversations,
   activeConversationId,
   onDelete,
+  conversationPath = '/',
+  newConversationPath = '/',
   hasNextPage,
   isFetchingNextPage,
   onLoadMore,
@@ -71,7 +75,10 @@ export const ConversationList: FC<ConversationListProps> = ({
             <p className="text-muted-foreground text-sm">
               No conversations yet
             </p>
-            <Link to="/" className="mt-2 text-primary text-sm hover:underline">
+            <Link
+              to={newConversationPath}
+              className="mt-2 text-primary text-sm hover:underline"
+            >
               Start a new chat
             </Link>
           </div>
@@ -82,24 +89,28 @@ export const ConversationList: FC<ConversationListProps> = ({
               conversations={groupedConversations.today}
               onDelete={onDelete}
               activeConversationId={activeConversationId}
+              conversationPath={conversationPath}
             />
             <ConversationGroup
               label={TIME_GROUP_LABELS.thisWeek}
               conversations={groupedConversations.thisWeek}
               onDelete={onDelete}
               activeConversationId={activeConversationId}
+              conversationPath={conversationPath}
             />
             <ConversationGroup
               label={TIME_GROUP_LABELS.thisMonth}
               conversations={groupedConversations.thisMonth}
               onDelete={onDelete}
               activeConversationId={activeConversationId}
+              conversationPath={conversationPath}
             />
             <ConversationGroup
               label={TIME_GROUP_LABELS.older}
               conversations={groupedConversations.older}
               onDelete={onDelete}
               activeConversationId={activeConversationId}
+              conversationPath={conversationPath}
             />
 
             {hasNextPage && (

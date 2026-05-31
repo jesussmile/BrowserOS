@@ -97,7 +97,15 @@ export const App: FC = () => {
                   />
                 </Route>
                 <Route path="chat" element={<NewTabChat />} />
-                <Route path="chat/history" element={<ChatHistory />} />
+                <Route
+                  path="chat/history"
+                  element={
+                    <ChatHistory
+                      conversationPath="/home/chat"
+                      newConversationPath="/home/chat"
+                    />
+                  }
+                />
                 <Route path="personalize" element={<Personalize />} />
               </>
             ) : (

@@ -7,6 +7,7 @@ interface ConversationGroupProps {
   conversations: HistoryConversation[]
   onDelete?: (id: string) => void
   activeConversationId: string
+  conversationPath?: string
 }
 
 export const ConversationGroup: FC<ConversationGroupProps> = ({
@@ -14,6 +15,7 @@ export const ConversationGroup: FC<ConversationGroupProps> = ({
   conversations,
   onDelete,
   activeConversationId,
+  conversationPath,
 }) => {
   if (conversations.length === 0) return null
 
@@ -29,6 +31,7 @@ export const ConversationGroup: FC<ConversationGroupProps> = ({
             conversation={conversation}
             onDelete={onDelete}
             isActive={conversation.id === activeConversationId}
+            conversationPath={conversationPath}
           />
         ))}
       </div>
