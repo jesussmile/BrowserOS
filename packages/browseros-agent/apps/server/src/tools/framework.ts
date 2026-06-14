@@ -20,12 +20,18 @@ export type ToolHandler = (
 
 export interface ToolDirectories {
   workingDir?: string
+  defaultOutputDir?: string
   resourcesDir?: string
 }
 
 export interface ToolSessionContext {
   origin?: 'sidepanel' | 'newtab'
   originPageId?: number
+  conversationId?: string
+  approvalPolicy?: {
+    mode: 'supervised' | 'full_browser'
+    scope: 'goal_run'
+  }
 }
 
 export type ToolContext = {
@@ -39,7 +45,13 @@ export function resolveWorkingPath(
   targetPath: string,
   cwd?: string,
 ): string {
-  return resolve(cwd ?? ctx.directories.workingDir ?? tmpdir(), targetPath)
+  return resolve(
+    cwd ??
+      ctx.directories.workingDir ??
+      ctx.directories.defaultOutputDir ??
+      tmpdir(),
+    targetPath,
+  )
 }
 
 export function defineTool<

@@ -7,8 +7,12 @@ import { ChatFooter } from '@/entrypoints/sidepanel/index/ChatFooter'
 import { ChatHeader } from '@/entrypoints/sidepanel/index/ChatHeader'
 import { ChatMessages } from '@/entrypoints/sidepanel/index/ChatMessages'
 import {
+  DEFAULT_CHAT_MODE,
+  normalizeChatMode,
+} from '@/entrypoints/sidepanel/index/chatTypes'
+import {
   createAITabAction,
-  createBrowserOSAction,
+  createPannamOSAction,
 } from '@/lib/chat-actions/types'
 import { useChatActions } from '@/lib/chat-actions/useChatActions'
 import {
@@ -25,6 +29,7 @@ import {
   NEWTAB_VOICE_TRANSCRIPTION_COMPLETED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
+import { canSendInitialNewTabMessage } from './newtabInitialMessage'
 
 export const NewTabChat: FC = () => {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -43,9 +48,11 @@ export const NewTabChat: FC = () => {
     onClickLike,
     disliked,
     onClickDislike,
+    addToolApprovalResponse,
     isRestoringConversation,
     providers,
     selectedProvider,
+    isLoading,
     handleSelectProvider,
     resetConversation,
     input,
@@ -76,18 +83,25 @@ export const NewTabChat: FC = () => {
 
   // Send the initial message from URL query params (from /home search bar).
   // Guarded by ref to prevent double-fire in React Strict Mode.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: must only run once on mount
   useEffect(() => {
     if (hasSentInitialRef.current) return
     const query = searchParams.get('q')
-    const chatMode = searchParams.get('mode')
+    if (
+      !canSendInitialNewTabMessage({
+        query,
+        isLoading,
+        hasSelectedProvider: Boolean(selectedProvider),
+      })
+    ) {
+      return
+    }
+
+    const message = query?.trim() ?? ''
+    const chatMode = normalizeChatMode(searchParams.get('mode'))
     const tabIdsParam = searchParams.get('tabs')
-    if (!query) return
 
     hasSentInitialRef.current = true
-    if (chatMode === 'chat' || chatMode === 'agent') {
-      setMode(chatMode)
-    }
+    setMode(chatMode)
     setSearchParams({}, { replace: true })
 
     const actionType = searchParams.get('actionType')
@@ -108,20 +122,27 @@ export const NewTabChat: FC = () => {
                   description: tabDescription ?? '',
                   tabs: matchedTabs,
                 })
-              : createBrowserOSAction({
-                  mode: (chatMode as 'chat' | 'agent') ?? 'agent',
-                  message: query,
+              : createPannamOSAction({
+                  mode: chatMode ?? DEFAULT_CHAT_MODE,
+                  message,
                   tabs: matchedTabs,
                 })
-          sendMessage({ text: query, action })
+          sendMessage({ text: message, action })
         } else {
-          sendMessage({ text: query })
+          sendMessage({ text: message })
         }
       })
     } else {
-      sendMessage({ text: query })
+      sendMessage({ text: message })
     }
-  }, [])
+  }, [
+    isLoading,
+    searchParams,
+    selectedProvider,
+    sendMessage,
+    setMode,
+    setSearchParams,
+  ])
 
   const handleNewConversation = () => {
     track(NEWTAB_CHAT_RESET_EVENT, { message_count: messages.length })
@@ -164,6 +185,7 @@ export const NewTabChat: FC = () => {
             onClickLike={onClickLike}
             disliked={disliked}
             onClickDislike={onClickDislike}
+            onToolApprovalResponse={addToolApprovalResponse}
             showJtbdPopup={false}
             showDontShowAgain={false}
             onTakeSurvey={() => {}}
@@ -194,6 +216,11 @@ export const NewTabChat: FC = () => {
           onToggleTab={toggleTabSelection}
           onRemoveTab={removeTab}
           voice={voiceState}
+          attachments={[]}
+          onAttachmentsChange={() => {}}
+          attachmentsEnabled={false}
+          agentStrategyMode="auto"
+          onAgentStrategyModeChange={() => {}}
         />
       </div>
     </div>

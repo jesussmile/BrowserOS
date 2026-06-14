@@ -1,3 +1,7 @@
+import {
+  isLoopbackHttpUrl,
+  LOCAL_MCP_URL_ERROR,
+} from '@browseros/shared/utils/local-url'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ChevronRight, Lightbulb } from 'lucide-react'
 import type { FC } from 'react'
@@ -31,7 +35,10 @@ import { Textarea } from '@/components/ui/textarea'
 
 const formSchema = z.object({
   name: z.string().min(1, 'Server name is required'),
-  url: z.string().url('Please enter a valid URL'),
+  url: z
+    .string()
+    .url('Please enter a valid URL')
+    .refine(isLoopbackHttpUrl, LOCAL_MCP_URL_ERROR),
   description: z.string().optional(),
 })
 
@@ -110,11 +117,13 @@ export const AddCustomMCPDialog: FC<AddCustomMCPDialogProps> = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>MCP Server URL</FormLabel>
-                  <FormDescription>(only supports HTTP)</FormDescription>
+                  <FormDescription>
+                    Use a local endpoint such as http://localhost:8000/sse.
+                  </FormDescription>
                   <FormControl>
                     <Input
                       type="url"
-                      placeholder="http://mcp.example.com"
+                      placeholder="http://localhost:8000/sse"
                       {...field}
                     />
                   </FormControl>
@@ -151,13 +160,12 @@ export const AddCustomMCPDialog: FC<AddCustomMCPDialogProps> = ({
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-90" />
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-2 rounded-md border border-[var(--accent-orange)]/30 bg-[var(--accent-orange)]/5 px-3 py-2 text-muted-foreground text-sm">
-                Many apps like Notion, Slack, or Stripe offer an MCP server you
-                can run locally. Check the app's docs for an MCP setup guide —
-                you'll get a URL (usually starting with{' '}
+                Run the MCP server on this PC and paste its loopback URL here.
+                Local endpoints usually start with{' '}
                 <code className="inline rounded bg-muted px-1 text-xs">
                   http://
                 </code>
-                ) to paste here.
+                .
               </CollapsibleContent>
             </Collapsible>
 

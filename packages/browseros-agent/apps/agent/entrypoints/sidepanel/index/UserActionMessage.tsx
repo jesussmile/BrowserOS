@@ -1,10 +1,19 @@
-import { Bot, FileText, Globe, Sparkles } from 'lucide-react'
+import {
+  Bot,
+  FileText,
+  Globe,
+  type LucideIcon,
+  MessageSquare,
+  Repeat2,
+  Search,
+} from 'lucide-react'
 import type { FC } from 'react'
 import type {
   AITabAction,
-  BrowserOSAction,
   ChatAction,
+  PannamOSAction,
 } from '@/lib/chat-actions/types'
+import { CHAT_MODE_DETAILS, type ChatMode } from './chatTypes'
 
 interface UserActionMessageProps {
   action: ChatAction
@@ -63,23 +72,27 @@ const AITabActionCard: FC<{ action: AITabAction }> = ({ action }) => {
   )
 }
 
-const BrowserOSActionCard: FC<{ action: BrowserOSAction }> = ({ action }) => {
-  const isAgent = action.mode === 'agent'
+const PannamOSActionCard: FC<{ action: PannamOSAction }> = ({ action }) => {
+  const modeDetails = CHAT_MODE_DETAILS[action.mode]
+  const modeIcons: Record<ChatMode, LucideIcon> = {
+    agent: Bot,
+    chat: MessageSquare,
+    research: Search,
+    workflow: Repeat2,
+    goal: Bot,
+  }
+  const ModeIcon = modeIcons[action.mode]
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-start gap-2">
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)]/10">
-          {isAgent ? (
-            <Bot className="h-4 w-4 text-[var(--accent-orange)]" />
-          ) : (
-            <Sparkles className="h-4 w-4 text-[var(--accent-orange)]" />
-          )}
+          <ModeIcon className="h-4 w-4 text-[var(--accent-orange)]" />
         </div>
         <div className="flex-1">
           <div className="mb-0.5 flex items-center gap-1.5">
             <span className="rounded bg-[var(--accent-orange)]/10 px-1.5 py-0.5 font-medium text-[10px] text-[var(--accent-orange)] uppercase">
-              {isAgent ? 'Agent' : 'Chat'}
+              {modeDetails.shortLabel}
             </span>
           </div>
           <div className="text-foreground text-sm">{action.message}</div>
@@ -95,7 +108,7 @@ export const UserActionMessage: FC<UserActionMessageProps> = ({ action }) => {
     case 'ai-tab':
       return <AITabActionCard action={action} />
     case 'browseros':
-      return <BrowserOSActionCard action={action} />
+      return <PannamOSActionCard action={action} />
     default:
       return null
   }

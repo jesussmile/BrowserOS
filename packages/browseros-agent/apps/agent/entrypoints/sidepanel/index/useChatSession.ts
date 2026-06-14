@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { Provider } from '@/components/chat/chatComponentTypes'
+import type { ServerAttachmentPayload } from '@/lib/attachments'
 import { Capabilities, Feature } from '@/lib/browseros/capabilities'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 import type { ChatAction } from '@/lib/chat-actions/types'
@@ -17,32 +18,59 @@ import {
   PROVIDER_SELECTED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import {
-  conversationStorage,
+  getConversationById,
+  getLatestConversation,
   useConversations,
 } from '@/lib/conversations/conversationStorage'
 import { formatConversationHistory } from '@/lib/conversations/formatConversationHistory'
+import { compactLocalServerConversation } from '@/lib/conversations/localSessionClient'
+import { sanitizeConversationMessages } from '@/lib/conversations/messageSanitization'
 import { useInvalidateCredits } from '@/lib/credits/useCredits'
 import { declinedAppsStorage } from '@/lib/declined-apps/storage'
-import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
-import { createDefaultBrowserOSProvider } from '@/lib/llm-providers/storage'
-import type { ChatRequestBrowserContext } from '@/lib/messaging/server/buildChatRequestBody'
+import {
+  cancelGoalLoop,
+  compactGoalLoop,
+  type GoalLoopAction,
+  type GoalLoopProgress,
+  getGoalLoopProgress,
+  pauseGoalLoop,
+  planGoalLoop,
+  resumeGoalLoopStatus,
+  runGoalLoop,
+} from '@/lib/goals/goalLoopClient'
+import { createDefaultPannamOSProvider } from '@/lib/llm-providers/storage'
+import type {
+  ChatAgentStrategy,
+  ChatRequestBrowserContext,
+} from '@/lib/messaging/server/buildChatRequestBody'
 import { track } from '@/lib/metrics/track'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import { selectedTextStorage } from '@/lib/selected-text/selectedTextStorage'
 import { sentry } from '@/lib/sentry/sentry'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
-import type { ChatMode } from './chatTypes'
-import { GetConversationWithMessagesDocument } from './graphql/chatSessionDocument'
+import {
+  type ChatMode,
+  DEFAULT_CHAT_MODE,
+  normalizeChatMode,
+} from './chatTypes'
 import { toLlmProviderConfig } from './sidepanel-chat-targets'
 import { useChatRefs } from './useChatRefs'
+import {
+  createApprovalAutoSendPredicate,
+  extractToolApprovalResponses,
+  getOutgoingMessageText,
+} from './useChatSessionApprovals'
 import {
   buildSidepanelPreparedSendMessagesRequest,
   toProviderOption,
 } from './useChatSessionRequest'
 import { useExecutionHistoryTracker } from './useExecutionHistoryTracker'
 import { useNotifyActiveTab } from './useNotifyActiveTab'
-import { useRemoteConversationSave } from './useRemoteConversationSave'
+import {
+  shouldRouteWorkspaceGoalToAgentChat,
+  shouldSeedGoalLoopFromAttachedTabs,
+} from './workspaceGoalRouting'
 
 const getLastMessageText = (messages: UIMessage[]) => {
   const lastMessage = messages[messages.length - 1]
@@ -60,6 +88,80 @@ const getLastUserMessageText = (messages: UIMessage[]) => {
     }
   }
   return ''
+}
+
+const createTextMessage = (
+  role: 'user' | 'assistant',
+  text: string,
+): UIMessage => ({
+  id: crypto.randomUUID(),
+  role,
+  parts: [{ type: 'text', text }],
+})
+
+const inferGoalLoopAction = (text: string): GoalLoopAction => {
+  if (/\b(download|save\s+pdf|pdf|file)\b/i.test(text)) return 'download'
+  if (/\b(open|visit|go\s+to|navigate)\b/i.test(text)) return 'navigate'
+  if (/\b(click|select|choose)\b/i.test(text)) return 'click'
+  if (/\b(scroll)\b/i.test(text)) return 'scroll'
+  if (/\b(extract|collect|scrape|read\s+data)\b/i.test(text)) return 'extract'
+  if (/\b(verify|check|confirm)\b/i.test(text)) return 'verify'
+  return 'read'
+}
+
+const isGoalLoopTerminal = (progress: GoalLoopProgress | null): boolean => {
+  if (!progress) return false
+  if (
+    progress.status === 'completed' ||
+    progress.status === 'cancelled' ||
+    progress.status === 'blocked'
+  ) {
+    return true
+  }
+  return (
+    progress.status === 'paused' &&
+    progress.queueCounts.pending + progress.queueCounts.running === 0
+  )
+}
+
+const delay = (ms: number) =>
+  new Promise((resolve) => window.setTimeout(resolve, ms))
+
+const formatGoalLoopSummary = (progress: GoalLoopProgress | null): string => {
+  if (!progress) return 'Goal Loop finished, but progress could not be loaded.'
+
+  const counts = progress.queueCounts
+  const totals = progress.manifest?.totals
+  const outputPaths =
+    progress.manifest?.completed
+      .map((item) => item.artifactPath)
+      .filter((path): path is string => Boolean(path)) ?? []
+
+  if (progress.status === 'cancelled') {
+    return `Goal Loop cancelled. Completed ${counts.completed}, pending ${counts.pending}.`
+  }
+
+  if (progress.pauseReason) {
+    return `Goal Loop paused: ${progress.pauseReason}`
+  }
+
+  if (totals) {
+    const outputLine = outputPaths.length
+      ? `\n\nOutputs:\n${outputPaths.map((path) => `- ${path}`).join('\n')}`
+      : ''
+    return (
+      [
+        'Goal Loop complete.',
+        `Completed: ${totals.completed}`,
+        `Skipped: ${totals.skipped}`,
+        `Failed: ${totals.failed}`,
+        `Blocked: ${totals.blocked}`,
+        `Pending: ${totals.pending}`,
+      ].join('\n') + outputLine
+    )
+  }
+
+  return `Goal Loop status: ${progress.status}. Completed ${counts.completed}, pending ${counts.pending}.`
 }
 
 export const getResponseAndQueryFromMessageId = (
@@ -170,12 +272,6 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   } = useAgentServerUrl()
 
   const { saveConversation: saveLocalConversation } = useConversations()
-  const {
-    isLoggedIn,
-    saveConversation: saveRemoteConversation,
-    resetConversation: resetRemoteConversation,
-    markMessagesAsSaved,
-  } = useRemoteConversationSave()
   const [searchParams, setSearchParams] = useSearchParams()
   const conversationIdParam = searchParams.get('conversationId')
 
@@ -187,14 +283,30 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
   const providers: Provider[] = chatTargets.map(toProviderOption)
 
-  const [mode, setMode] = useState<ChatMode>('agent')
+  const [mode, setModeState] = useState<ChatMode>(DEFAULT_CHAT_MODE)
+  const modeRef = useRef<ChatMode>(DEFAULT_CHAT_MODE)
+  const setMode = useCallback((nextMode: ChatMode) => {
+    modeRef.current = nextMode
+    setModeState(nextMode)
+  }, [])
   const [textToAction, setTextToAction] = useState<Map<string, ChatAction>>(
     new Map(),
   )
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [disliked, setDisliked] = useState<Record<string, boolean>>({})
   const [conversationId, setConversationId] = useState(crypto.randomUUID())
+  const [goalLoopProgress, setGoalLoopProgress] =
+    useState<GoalLoopProgress | null>(null)
+  const [goalLoopStatus, setGoalLoopStatus] = useState<
+    'streaming' | 'submitted' | 'ready' | 'error'
+  >('ready')
+  const [activeGoalLoopId, setActiveGoalLoopId] = useState<string | null>(null)
+  const [initialChatMessages, setInitialChatMessages] = useState<
+    UIMessage[] | undefined
+  >(undefined)
   const conversationIdRef = useRef(conversationId)
+  const activeGoalLoopIdRef = useRef<string | null>(null)
+  const goalLoopStopRequestedRef = useRef(false)
   const skipLatestRestoreRef = useRef(searchParams.has('q'))
   const restoredLatestConversationRef = useRef(false)
   const [isRestoringLatestConversation, setIsRestoringLatestConversation] =
@@ -243,7 +355,6 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     }))
   }
 
-  const modeRef = useRef<ChatMode>(mode)
   const textToActionRef = useRef<Map<string, ChatAction>>(textToAction)
   const workingDirRef = useRef<string | undefined>(undefined)
   const selectionMapRef = useRef<
@@ -251,6 +362,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   >({})
   const pendingSelectionTabKeyRef = useRef<string | null>(null)
   const messagesRef = useRef<UIMessage[]>([])
+  const pendingRequestAttachmentsRef = useRef<ServerAttachmentPayload[]>([])
+  const pendingRequestAgentStrategyRef = useRef<ChatAgentStrategy | undefined>(
+    undefined,
+  )
 
   useEffect(() => {
     const toRef = (
@@ -293,6 +408,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const selectedProvider = selectedChatTarget
     ? toProviderOption(selectedChatTarget)
     : providers[0]
+  const sendApprovalResponsesAutomaticallyRef = useRef(
+    createApprovalAutoSendPredicate(),
+  )
 
   const {
     messages,
@@ -301,12 +419,15 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     status,
     stop,
     error: chatError,
+    addToolApprovalResponse,
   } = useChat({
+    id: conversationId,
+    messages: initialChatMessages,
     transport: new DefaultChatTransport({
       prepareSendMessagesRequest: async ({ messages }) => {
         const target = selectedChatTargetRef.current
         const fallbackProvider =
-          selectedLlmProviderRef.current ?? createDefaultBrowserOSProvider()
+          selectedLlmProviderRef.current ?? createDefaultPannamOSProvider()
         const activeTabsList = await chrome.tabs.query({
           active: true,
           currentWindow: true,
@@ -348,23 +469,48 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           personalizationRef.current,
         )
 
+        const selectedWorkspace = await selectedWorkspaceStorage.getValue()
+        const workingDir = selectedWorkspace?.path ?? workingDirRef.current
+        workingDirRef.current = workingDir
+
         const commonRequest = {
           conversationId: conversationIdRef.current,
           mode: currentMode,
           browserContext: requestBrowserContext,
           userSystemPrompt,
-          userWorkingDir: workingDirRef.current,
+          userWorkingDir: workingDir,
           previousConversation,
           declinedApps,
         }
 
-        const message = getLastMessageText(messages)
+        const message = getOutgoingMessageText(messages)
+        const approvalResponses = extractToolApprovalResponses(messages)
+        const hasApprovalResponses = (approvalResponses?.length ?? 0) > 0
+        const attachments = hasApprovalResponses
+          ? undefined
+          : pendingRequestAttachmentsRef.current
+        const agentStrategy = hasApprovalResponses
+          ? undefined
+          : pendingRequestAgentStrategyRef.current
+        pendingRequestAttachmentsRef.current = []
+        pendingRequestAgentStrategyRef.current = undefined
+
+        const isFullAccessMode =
+          currentMode === 'goal' || currentMode === 'agent'
 
         const result = buildSidepanelPreparedSendMessagesRequest({
           agentServerUrl: agentUrlRef.current ?? undefined,
           target,
           fallbackProvider,
           message,
+          approvalResponses,
+          attachments,
+          approvalPolicy: isFullAccessMode
+            ? { mode: 'full_browser', scope: 'goal_run' }
+            : undefined,
+          agentStrategy: isFullAccessMode
+            ? (agentStrategy ?? { mode: 'auto', maxWorkers: 3 })
+            : undefined,
           ...commonRequest,
           selectedText: activeTabSelection?.text,
           selectedTextSource: activeTabSelection
@@ -382,6 +528,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         return result
       },
     }),
+    sendAutomaticallyWhen: sendApprovalResponsesAutomaticallyRef.current,
     onFinish: async ({ message, isAbort, isError }) => {
       await finishExecutionTask({
         responseText: getLastMessageText([message]),
@@ -392,11 +539,17 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   })
 
   // Remove messages with empty parts (e.g. interrupted assistant responses)
-  // to prevent AI SDK validation errors on subsequent sends
+  // and strip bulky tool payloads that the UI never renders.
   useEffect(() => {
-    if (status === 'streaming') return
-    if (messages.some((m) => !m.parts?.length)) {
-      setMessages(messages.filter((m) => m.parts?.length > 0))
+    const hasEmptyMessages =
+      status !== 'streaming' && messages.some((m) => !m.parts?.length)
+    const withoutEmpty = hasEmptyMessages
+      ? messages.filter((m) => m.parts?.length > 0)
+      : messages
+    const sanitized = sanitizeConversationMessages(withoutEmpty)
+    if (sanitized !== messages) {
+      messagesRef.current = sanitized
+      setMessages(sanitized)
     }
   }, [messages, status, setMessages])
 
@@ -404,64 +557,41 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     messages,
     status,
     conversationId: conversationIdRef.current,
+    goalLoopProgress,
   })
-
-  const {
-    data: remoteConversationData,
-    isFetched: isRemoteConversationFetched,
-  } = useGraphqlQuery(
-    GetConversationWithMessagesDocument,
-    { conversationId: conversationIdParam ?? '' },
-    {
-      enabled: !!conversationIdParam && isLoggedIn,
-    },
-  )
 
   const [restoredConversationId, setRestoredConversationId] = useState<
     string | null
   >(null)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: restore should only run when query data arrives or conversationIdParam changes
   useEffect(() => {
     if (!conversationIdParam) return
     if (restoredConversationId === conversationIdParam) return
 
-    if (isLoggedIn) {
-      if (!isRemoteConversationFetched) return
+    const restoreLocal = async () => {
+      const conversation = await getConversationById(conversationIdParam)
 
-      if (remoteConversationData?.conversation) {
-        const restoredMessages =
-          remoteConversationData.conversation.conversationMessages.nodes
-            .filter((node): node is NonNullable<typeof node> => node !== null)
-            .map((node) => node.message as UIMessage)
-
-        setConversationId(
-          conversationIdParam as ReturnType<typeof crypto.randomUUID>,
+      if (conversation) {
+        const restoredMessages = sanitizeConversationMessages(
+          conversation.messages.filter((m) => m.parts?.length > 0),
         )
+        setConversationId(
+          conversation.id as ReturnType<typeof crypto.randomUUID>,
+        )
+        setInitialChatMessages(restoredMessages)
+        messagesRef.current = restoredMessages
         setMessages(restoredMessages)
-        markMessagesAsSaved(conversationIdParam, restoredMessages)
       }
       setRestoredConversationId(conversationIdParam)
       setSearchParams({}, { replace: true })
-    } else {
-      const restoreLocal = async () => {
-        const conversations = await conversationStorage.getValue()
-        const conversation = conversations?.find(
-          (c) => c.id === conversationIdParam,
-        )
-
-        if (conversation) {
-          setConversationId(
-            conversation.id as ReturnType<typeof crypto.randomUUID>,
-          )
-          setMessages(conversation.messages)
-        }
-        setRestoredConversationId(conversationIdParam)
-        setSearchParams({}, { replace: true })
-      }
-      restoreLocal()
     }
-  }, [conversationIdParam, remoteConversationData, isLoggedIn])
+    restoreLocal()
+  }, [
+    conversationIdParam,
+    restoredConversationId,
+    setMessages,
+    setSearchParams,
+  ])
 
   useEffect(() => {
     if (
@@ -473,30 +603,24 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       return
     }
 
-    restoredLatestConversationRef.current = true
     let cancelled = false
     setIsRestoringLatestConversation(true)
 
-    conversationStorage
-      .getValue()
-      .then((conversations) => {
+    getLatestConversation()
+      .then((latestConversation) => {
         if (cancelled) return
-        const latestConversation = [...(conversations ?? [])]
-          .filter((conversation) => conversation.messages.length > 0)
-          .sort((a, b) => b.lastMessagedAt - a.lastMessagedAt)[0]
-
+        restoredLatestConversationRef.current = true
         if (!latestConversation) return
 
+        const restoredMessages = sanitizeConversationMessages(
+          latestConversation.messages.filter((m) => m.parts?.length > 0),
+        )
         setConversationId(
           latestConversation.id as ReturnType<typeof crypto.randomUUID>,
         )
-        setMessages(latestConversation.messages)
-        if (isLoggedIn) {
-          markMessagesAsSaved(
-            latestConversation.id,
-            latestConversation.messages,
-          )
-        }
+        setInitialChatMessages(restoredMessages)
+        messagesRef.current = restoredMessages
+        setMessages(restoredMessages)
       })
       .finally(() => {
         if (!cancelled) setIsRestoringLatestConversation(false)
@@ -505,12 +629,13 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     return () => {
       cancelled = true
     }
-  }, [conversationIdParam, isLoggedIn, markMessagesAsSaved, setMessages])
+  }, [conversationIdParam, setMessages])
 
   // Keep messagesRef in sync on every change (cheap ref assignment)
   useEffect(() => {
-    messagesRef.current = messages
-    syncExecutionHistory(messages, status)
+    const sanitized = sanitizeConversationMessages(messages)
+    messagesRef.current = sanitized
+    syncExecutionHistory(sanitized, status)
   }, [messages, status, syncExecutionHistory])
 
   // Save conversation only after streaming completes — not on every token
@@ -538,16 +663,14 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       })
     }
 
-    const messagesToSave = messages.filter((m) => m.parts?.length > 0)
+    const messagesToSave = sanitizeConversationMessages(
+      messagesRef.current.filter((m) => m.parts?.length > 0),
+    )
     if (messagesToSave.length === 0) return
 
-    // Keep a local copy even when cloud sync is enabled so session loss or
-    // remote-save failures do not make completed chats disappear.
+    // Private fork default: completed chats are persisted locally through the
+    // PannamOS server SQLite store, with extension storage as fallback.
     saveLocalConversation(conversationIdRef.current, messagesToSave)
-
-    if (isLoggedIn) {
-      saveRemoteConversation(conversationIdRef.current, messagesToSave)
-    }
 
     invalidateCredits()
   }, [status])
@@ -561,17 +684,187 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const pendingMessageRef = useRef<{
     text: string
     action?: ChatAction
+    attachments?: ServerAttachmentPayload[]
+    agentStrategy?: ChatAgentStrategy
   } | null>(null)
 
   const dispatchMessage = useCallback(
-    (text: string) => {
+    (
+      text: string,
+      attachments: ServerAttachmentPayload[] = [],
+      agentStrategy?: ChatAgentStrategy,
+    ) => {
       startExecutionTask({
         conversationId: conversationIdRef.current,
         promptText: text,
       })
+      pendingRequestAttachmentsRef.current = attachments
+      pendingRequestAgentStrategyRef.current = agentStrategy
       baseSendMessage({ text })
     },
     [baseSendMessage, startExecutionTask],
+  )
+
+  const persistGoalLoopMessages = useCallback(
+    (nextMessages: UIMessage[]) => {
+      const sanitizedMessages = sanitizeConversationMessages(nextMessages)
+      messagesRef.current = sanitizedMessages
+      setMessages(sanitizedMessages)
+      saveLocalConversation(conversationIdRef.current, sanitizedMessages)
+    },
+    [saveLocalConversation, setMessages],
+  )
+
+  const appendGoalLoopMessage = useCallback(
+    (role: 'user' | 'assistant', text: string) => {
+      const nextMessages = [
+        ...messagesRef.current.filter((message) => message.parts?.length > 0),
+        createTextMessage(role, text),
+      ]
+      persistGoalLoopMessages(nextMessages)
+      return nextMessages
+    },
+    [persistGoalLoopMessages],
+  )
+
+  const buildGoalLoopQueueItems = useCallback(
+    (text: string, action?: ChatAction) => {
+      if (!shouldSeedGoalLoopFromAttachedTabs(text, action)) return undefined
+      if (!action?.tabs?.length) return undefined
+      const goalAction = inferGoalLoopAction(text)
+      return action.tabs
+        .filter((tab) => tab.url?.startsWith('http'))
+        .map((tab) => ({
+          title: `${goalAction === 'download' ? 'Download' : 'Read'} ${tab.title ?? tab.url}`,
+          sourceUrl: tab.url,
+          metadata: {
+            action: goalAction,
+            risk: 'low' as const,
+            url: tab.url,
+          },
+        }))
+    },
+    [],
+  )
+
+  const runGoalLoopUntilSettled = useCallback(
+    async (goalId: string): Promise<GoalLoopProgress | null> => {
+      setGoalLoopStatus('streaming')
+
+      let latestProgress = await getGoalLoopProgress(goalId)
+      if (latestProgress) setGoalLoopProgress(latestProgress)
+
+      const startedRun = await runGoalLoop(goalId, {
+        resumeReason: 'ui_auto_continue',
+        background: true,
+      })
+
+      if (!startedRun) {
+        latestProgress = await getGoalLoopProgress(goalId)
+        if (latestProgress) setGoalLoopProgress(latestProgress)
+        if (!latestProgress) throw new Error('Goal Loop run failed to start.')
+        return latestProgress
+      }
+
+      while (!goalLoopStopRequestedRef.current) {
+        await delay(1500)
+        latestProgress = await getGoalLoopProgress(goalId)
+        if (latestProgress) setGoalLoopProgress(latestProgress)
+        if (isGoalLoopTerminal(latestProgress)) break
+      }
+
+      latestProgress = await getGoalLoopProgress(goalId)
+      if (latestProgress) setGoalLoopProgress(latestProgress)
+      return latestProgress
+    },
+    [],
+  )
+
+  const dispatchGoalLoopMessage = useCallback(
+    async (params: {
+      text: string
+      action?: ChatAction
+      attachments?: ServerAttachmentPayload[]
+      agentStrategy?: ChatAgentStrategy
+    }) => {
+      let workingDir = workingDirRef.current
+      try {
+        const selectedWorkspace = await selectedWorkspaceStorage.getValue()
+        workingDir = selectedWorkspace?.path
+        workingDirRef.current = workingDir
+      } catch {
+        // Keep the last known workspace ref if extension storage is unavailable.
+      }
+
+      if (
+        shouldRouteWorkspaceGoalToAgentChat(
+          params.text,
+          workingDir,
+          params.action,
+        )
+      ) {
+        goalLoopStopRequestedRef.current = true
+        activeGoalLoopIdRef.current = null
+        setActiveGoalLoopId(null)
+        setGoalLoopProgress(null)
+        setGoalLoopStatus('ready')
+        dispatchMessage(params.text, params.attachments, params.agentStrategy)
+        return
+      }
+
+      goalLoopStopRequestedRef.current = false
+      setGoalLoopStatus('submitted')
+      setGoalLoopProgress(null)
+      startExecutionTask({
+        conversationId: conversationIdRef.current,
+        promptText: params.text,
+      })
+      appendGoalLoopMessage('user', params.text)
+
+      try {
+        const goal = await planGoalLoop({
+          sessionId: conversationIdRef.current,
+          prompt: params.text,
+          approvalPolicy: { mode: 'full_browser', scope: 'goal_run' },
+          agentStrategy: params.agentStrategy ?? {
+            mode: 'auto',
+            maxWorkers: 3,
+          },
+          queueItems: buildGoalLoopQueueItems(params.text, params.action),
+        })
+        if (!goal) throw new Error('Goal Loop could not be planned locally.')
+
+        activeGoalLoopIdRef.current = goal.id
+        setActiveGoalLoopId(goal.id)
+
+        const finalProgress = await runGoalLoopUntilSettled(goal.id)
+        const responseText = formatGoalLoopSummary(finalProgress)
+        appendGoalLoopMessage('assistant', responseText)
+        await finishExecutionTask({
+          responseText,
+          isAbort: finalProgress?.status === 'cancelled',
+          isError:
+            !finalProgress ||
+            finalProgress.queueCounts.failed > 0 ||
+            finalProgress.status === 'blocked',
+        })
+        setGoalLoopStatus('ready')
+      } catch (error) {
+        const responseText =
+          error instanceof Error ? error.message : String(error)
+        appendGoalLoopMessage('assistant', responseText)
+        await finishExecutionTask({ responseText, isError: true })
+        setGoalLoopStatus('error')
+      }
+    },
+    [
+      appendGoalLoopMessage,
+      buildGoalLoopQueueItems,
+      dispatchMessage,
+      finishExecutionTask,
+      runGoalLoopUntilSettled,
+      startExecutionTask,
+    ],
   )
 
   useEffect(() => {
@@ -583,6 +876,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     if (isIntegrationsSynced && pendingMessageRef.current) {
       const pending = pendingMessageRef.current
       pendingMessageRef.current = null
+      if (modeRef.current === 'goal') {
+        void dispatchGoalLoopMessage(pending)
+        return
+      }
       if (pending.action) {
         setTextToAction((prev) => {
           const next = new Map(prev)
@@ -591,11 +888,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           return next
         })
       }
-      dispatchMessage(pending.text)
+      dispatchMessage(pending.text, pending.attachments, pending.agentStrategy)
     }
-  }, [dispatchMessage, isIntegrationsSynced])
+  }, [dispatchGoalLoopMessage, dispatchMessage, isIntegrationsSynced])
 
-  const sendMessage = (params: { text: string; action?: ChatAction }) => {
+  const sendMessage = (params: {
+    text: string
+    action?: ChatAction
+    attachments?: ServerAttachmentPayload[]
+    agentStrategy?: ChatAgentStrategy
+  }) => {
     const target = selectedChatTargetRef.current
     const llmTargetProvider = toLlmProviderConfig(target)
     const agentTarget = target?.kind === 'acp' ? target : undefined
@@ -620,6 +922,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       return
     }
 
+    if (modeRef.current === 'goal') {
+      void dispatchGoalLoopMessage(params)
+      return
+    }
+
     if (params.action) {
       const action = params.action
       setTextToAction((prev) => {
@@ -628,14 +935,98 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         return next
       })
     }
-    dispatchMessage(params.text)
+    dispatchMessage(params.text, params.attachments, params.agentStrategy)
   }
+
+  const compactConversation = useCallback(async () => {
+    if (activeGoalLoopIdRef.current) {
+      const compacted = await compactGoalLoop(activeGoalLoopIdRef.current, {
+        reason: 'manual_resume',
+      })
+      if (compacted?.progress) {
+        setGoalLoopProgress(compacted.progress)
+      } else {
+        const progress = await getGoalLoopProgress(activeGoalLoopIdRef.current)
+        if (progress) setGoalLoopProgress(progress)
+      }
+      appendGoalLoopMessage('assistant', 'Goal Loop compacted locally.')
+      return
+    }
+
+    const compaction = await compactLocalServerConversation(
+      conversationIdRef.current,
+    )
+    const responseText = compaction
+      ? `Conversation compacted locally. ${compaction.retainedRecentCount} recent messages retained in the compact packet.`
+      : 'Conversation compact failed. The local server did not return a compact packet.'
+    const nextMessages = [
+      ...messagesRef.current.filter((message) => message.parts?.length > 0),
+      createTextMessage('assistant', responseText),
+    ]
+    persistGoalLoopMessages(nextMessages)
+  }, [appendGoalLoopMessage, persistGoalLoopMessages])
+
+  const pauseActiveGoalLoop = useCallback(async () => {
+    const goalId = activeGoalLoopIdRef.current
+    if (!goalId) return
+    goalLoopStopRequestedRef.current = true
+    await pauseGoalLoop(goalId)
+    const progress = await getGoalLoopProgress(goalId)
+    if (progress) setGoalLoopProgress(progress)
+    setGoalLoopStatus('ready')
+  }, [])
+
+  const resumeActiveGoalLoop = useCallback(async () => {
+    const goalId = activeGoalLoopIdRef.current
+    if (!goalId) return
+    goalLoopStopRequestedRef.current = false
+    setGoalLoopStatus('submitted')
+    await resumeGoalLoopStatus(goalId)
+    const resumedProgress = await getGoalLoopProgress(goalId)
+    if (resumedProgress) setGoalLoopProgress(resumedProgress)
+    try {
+      const finalProgress = await runGoalLoopUntilSettled(goalId)
+      const responseText = formatGoalLoopSummary(finalProgress)
+      appendGoalLoopMessage('assistant', responseText)
+      await finishExecutionTask({
+        responseText,
+        isAbort: finalProgress?.status === 'cancelled',
+        isError:
+          !finalProgress ||
+          finalProgress.queueCounts.failed > 0 ||
+          finalProgress.status === 'blocked',
+      })
+      setGoalLoopStatus('ready')
+    } catch (error) {
+      const responseText =
+        error instanceof Error ? error.message : String(error)
+      appendGoalLoopMessage('assistant', responseText)
+      await finishExecutionTask({ responseText, isError: true })
+      setGoalLoopStatus('error')
+    }
+  }, [appendGoalLoopMessage, finishExecutionTask, runGoalLoopUntilSettled])
+
+  const cancelActiveGoalLoop = useCallback(async () => {
+    const goalId = activeGoalLoopIdRef.current
+    if (!goalId) {
+      stop()
+      return
+    }
+    goalLoopStopRequestedRef.current = true
+    await cancelGoalLoop(goalId)
+    const progress = await getGoalLoopProgress(goalId)
+    if (progress) setGoalLoopProgress(progress)
+    setGoalLoopStatus('ready')
+    await finishExecutionTask({ isAbort: true })
+  }, [finishExecutionTask, stop])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run this once
   useEffect(() => {
     const unwatch = searchActionsStorage.watch((storageAction) => {
       if (storageAction) {
-        setMode(storageAction.mode)
+        const nextMode = normalizeChatMode(storageAction.mode)
+        modeRef.current = nextMode
+        setMode(nextMode)
         sendMessage({ text: storageAction.query, action: storageAction.action })
       }
     })
@@ -657,13 +1048,18 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const resetConversationState = () => {
     stop()
     void finishExecutionTask({ isAbort: true })
+    setInitialChatMessages(undefined)
     setConversationId(crypto.randomUUID())
     setMessages([])
     setTextToAction(new Map())
+    setGoalLoopProgress(null)
+    setActiveGoalLoopId(null)
+    activeGoalLoopIdRef.current = null
+    goalLoopStopRequestedRef.current = true
+    setGoalLoopStatus('ready')
     setLiked({})
     setDisliked({})
     setRestoredConversationId(null)
-    resetRemoteConversation()
   }
 
   const handleSelectProvider = (provider: Provider) => {
@@ -721,14 +1117,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const isRestoringConversation =
     (!!conversationIdParam && restoredConversationId !== conversationIdParam) ||
     isRestoringLatestConversation
+  const effectiveStatus = goalLoopStatus !== 'ready' ? goalLoopStatus : status
+  const effectiveStop = goalLoopStatus !== 'ready' ? cancelActiveGoalLoop : stop
 
   return {
     mode,
     setMode,
     messages,
     sendMessage,
-    status,
-    stop,
+    status: effectiveStatus,
+    stop: effectiveStop,
     providers,
     selectedProvider,
     isLoading: isLoadingProviders || isLoadingAgentUrl,
@@ -743,6 +1141,13 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     onClickLike,
     disliked,
     onClickDislike,
+    addToolApprovalResponse,
     conversationId,
+    goalLoopProgress,
+    activeGoalLoopId,
+    pauseGoalLoop: pauseActiveGoalLoop,
+    resumeGoalLoop: resumeActiveGoalLoop,
+    cancelGoalLoop: cancelActiveGoalLoop,
+    compactConversation,
   }
 }

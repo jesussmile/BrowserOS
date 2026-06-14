@@ -6,6 +6,11 @@ interface AddServerResponse {
   serverName: string
   strataId: string
   addedServers: string[]
+  connectionMode?: 'local_catalog'
+  localConnector?: {
+    url: string
+    description: string
+  }
   oauthUrl?: string
   apiKeyUrl?: string
 }
@@ -16,14 +21,22 @@ interface AddServerError {
 
 const addManagedServer = async (
   url: string,
-  { arg }: { arg: { serverName: string } },
+  {
+    arg,
+  }: {
+    arg: {
+      serverName: string
+      localConnectorUrl?: string
+      localConnectorDescription?: string
+    }
+  },
 ): Promise<AddServerResponse> => {
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ serverName: arg.serverName }),
+    body: JSON.stringify(arg),
   })
 
   if (!response.ok) {
@@ -38,7 +51,7 @@ export const useAddManagedServer = () => {
   const { baseUrl: agentServerUrl } = useAgentServerUrl()
 
   return useSWRMutation(
-    agentServerUrl ? `${agentServerUrl}/klavis/servers/add` : null,
+    agentServerUrl ? `${agentServerUrl}/local/apps/add` : null,
     addManagedServer,
   )
 }

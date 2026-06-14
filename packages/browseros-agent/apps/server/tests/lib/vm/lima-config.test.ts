@@ -11,12 +11,12 @@ describe('renderLimaTemplate', () => {
     const yaml = renderLimaTemplate(
       'minimumLimaVersion: 2.0.0\nmounts: []\nprobes: []\n',
       {
-        vmStateDir: '/Users/me/.browseros/vm',
+        vmStateDir: '/Users/me/.pannamos/vm',
       },
     )
 
     expect(yaml).toContain('mountPoint: "/mnt/browseros/vm"')
-    expect(yaml).toContain('location: "/Users/me/.browseros/vm"')
+    expect(yaml).toContain('location: "/Users/me/.pannamos/vm"')
     expect(yaml).toContain('probes: []')
   })
 

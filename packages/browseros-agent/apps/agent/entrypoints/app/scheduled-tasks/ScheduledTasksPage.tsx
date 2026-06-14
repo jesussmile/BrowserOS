@@ -29,6 +29,7 @@ import {
   useScheduledJobs,
 } from '@/lib/schedules/scheduleStorage'
 import type { ScheduledJobRun } from '@/lib/schedules/scheduleTypes'
+import { normalizeChatMode } from '../../sidepanel/index/chatTypes'
 import { NewScheduledTaskDialog } from './NewScheduledTaskDialog'
 import { ScheduledTaskResults } from './ScheduledTaskResults'
 import { ScheduledTasksHeader } from './ScheduledTasksHeader'
@@ -66,6 +67,7 @@ export const ScheduledTasksPage: FC = () => {
       id: '',
       name: searchParams.get('name') ?? '',
       query: searchParams.get('query') ?? '',
+      mode: normalizeChatMode(searchParams.get('mode')),
       scheduleType:
         (searchParams.get('scheduleType') as ScheduledJob['scheduleType']) ??
         'daily',

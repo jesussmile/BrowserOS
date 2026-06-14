@@ -7,8 +7,10 @@
 export const CHAT_MODE_ALLOWED_TOOLS = new Set([
   'list_pages',
   'get_page_content',
-  'scroll',
   'take_snapshot',
   'take_enhanced_snapshot',
-  'evaluate_script',
 ])
+
+export function isChatModeAllowedTool(toolName: string): boolean {
+  return CHAT_MODE_ALLOWED_TOOLS.has(toolName)
+}

@@ -49,7 +49,7 @@ describe('CodexRuntime', () => {
   it('declares the canonical Codex descriptor', () => {
     const runtime = new CodexRuntime(
       { binaryName: 'codex' },
-      { browserosDir: '/tmp/browseros' },
+      { browserosDir: '/tmp/pannamos' },
     )
     expect(runtime.descriptor.adapterId).toBe('codex')
     expect(runtime.descriptor.kind).toBe('host-process')
@@ -87,16 +87,16 @@ describe('CodexRuntime', () => {
 
   describe('configureCodexRuntime', () => {
     it('registers a runtime in the registry', () => {
-      const runtime = configureCodexRuntime({ browserosDir: '/tmp/browseros' })
+      const runtime = configureCodexRuntime({ browserosDir: '/tmp/pannamos' })
       expect(runtime).toBeInstanceOf(CodexRuntime)
       expect(getCodexRuntime()).toBe(runtime)
       expect(getAgentRuntimeRegistry().get('codex')).toBe(runtime)
     })
 
     it('throws on duplicate registration', () => {
-      configureCodexRuntime({ browserosDir: '/tmp/browseros' })
+      configureCodexRuntime({ browserosDir: '/tmp/pannamos' })
       expect(() =>
-        configureCodexRuntime({ browserosDir: '/tmp/browseros' }),
+        configureCodexRuntime({ browserosDir: '/tmp/pannamos' }),
       ).toThrow(/already registered/)
     })
   })

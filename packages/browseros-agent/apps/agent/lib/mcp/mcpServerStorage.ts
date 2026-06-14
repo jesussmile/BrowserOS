@@ -1,20 +1,8 @@
 import { storage } from '@wxt-dev/storage'
 import { useEffect, useState } from 'react'
+import { isLiveMcpServer, type McpServer } from '@/lib/mcp/mcpServerTypes'
 
-/**
- * @public
- */
-export interface McpServer {
-  id: string
-  displayName: string
-  type: 'managed' | 'custom'
-  managedServerName?: string
-  managedServerDescription?: string
-  config?: {
-    url?: string
-    description?: string
-  }
-}
+export { isLiveMcpServer, type McpServer }
 
 export const mcpServerStorage = storage.defineItem<McpServer[]>(
   'local:mcpServers',
@@ -42,10 +30,20 @@ export function useMcpServers() {
     await mcpServerStorage.setValue([...current, server])
   }
 
+  const updateServer = async (
+    id: string,
+    updater: (server: McpServer) => McpServer,
+  ) => {
+    const current = (await mcpServerStorage.getValue()) ?? []
+    await mcpServerStorage.setValue(
+      current.map((server) => (server.id === id ? updater(server) : server)),
+    )
+  }
+
   const removeServer = async (id: string) => {
     const current = (await mcpServerStorage.getValue()) ?? []
     await mcpServerStorage.setValue(current.filter((s) => s.id !== id))
   }
 
-  return { servers, addServer, removeServer }
+  return { servers, addServer, updateServer, removeServer }
 }

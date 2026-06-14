@@ -9,7 +9,7 @@ import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import { productRepositoryUrl } from '@/lib/constants/productUrls'
 import { useCredits } from '@/lib/credits/useCredits'
-import { BrowserOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
+import { PannamOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import type { ProviderType } from '@/lib/llm-providers/types'
 
 const CreditsBadgeWrapper: FC = () => {
@@ -71,7 +71,7 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
             {selectedProvider.kind === 'acp' ? (
               <Bot className="h-[18px] w-[18px]" />
             ) : selectedProvider.type === 'browseros' ? (
-              <BrowserOSIcon size={18} />
+              <PannamOSIcon size={18} />
             ) : (
               <ProviderIcon
                 type={selectedProvider.type as ProviderType}

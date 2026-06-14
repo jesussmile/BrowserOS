@@ -5,16 +5,17 @@ interface UserMCPIntegrationsList {
   integrations: {
     name: string
     is_authenticated: boolean
+    connection_mode?: 'local_catalog'
   }[]
   count: number
 }
 
-export const INTEGRATIONS_QUERY_KEY = 'klavis-user-integrations'
+export const INTEGRATIONS_QUERY_KEY = 'local-app-integrations'
 
 const getUserMCPIntegrations = async (
   hostUrl: string,
 ): Promise<UserMCPIntegrationsList> => {
-  const response = await fetch(`${hostUrl}/klavis/user-integrations`)
+  const response = await fetch(`${hostUrl}/local/apps/integrations`)
   const data = (await response.json()) as UserMCPIntegrationsList
   return data
 }

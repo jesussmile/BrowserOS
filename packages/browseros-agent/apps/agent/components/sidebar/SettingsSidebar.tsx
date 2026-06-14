@@ -61,7 +61,7 @@ const primarySettingsSections: NavSection[] = [
     items: [
       { name: 'AI & Agents', to: '/settings/ai', icon: Bot },
       {
-        name: 'Chat & Council Provider',
+        name: 'Chat Provider',
         to: '/settings/chat',
         icon: MessageSquare,
       },
@@ -71,12 +71,12 @@ const primarySettingsSections: NavSection[] = [
     label: 'Other',
     items: [
       {
-        name: 'Customize BrowserOS',
+        name: 'Customize PannamOS',
         to: '/settings/customization',
         icon: Palette,
         feature: Feature.CUSTOMIZATION_SUPPORT,
       },
-      { name: 'BrowserOS as MCP', to: '/settings/mcp', icon: Server },
+      { name: 'PannamOS as MCP', to: '/settings/mcp', icon: Server },
       {
         name: 'Usage & Billing',
         to: '/settings/usage',
@@ -88,7 +88,7 @@ const primarySettingsSections: NavSection[] = [
 ]
 
 const helpItems: NavItem[] = [
-  { name: 'Docs', href: 'https://docs.browseros.com/', icon: BookOpen },
+  { name: 'Local Runtime', to: '/settings/ai', icon: BookOpen },
   { name: 'Features', to: '/onboarding/features', icon: Compass },
   { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
 ]

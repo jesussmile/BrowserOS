@@ -24,6 +24,12 @@ export const suggest_schedule = defineTool({
       .describe(
         'Suggested time for daily tasks in HH:MM format (e.g. "09:00"). Ignored for hourly.',
       ),
+    mode: z
+      .enum(['chat', 'research', 'workflow', 'agent', 'goal'])
+      .optional()
+      .describe(
+        'Preferred execution mode for the scheduled task. Use the current conversation mode when known.',
+      ),
   }),
   handler: async (args, _ctx, response) => {
     response.text(
@@ -33,6 +39,7 @@ export const suggest_schedule = defineTool({
         suggestedName: args.suggestedName,
         scheduleType: args.scheduleType,
         scheduleTime: args.scheduleTime ?? '09:00',
+        mode: args.mode ?? 'goal',
       }),
     )
   },

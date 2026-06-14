@@ -77,8 +77,8 @@ function makeDeps(opts: {
     loader: fakeLoader as unknown as ManagedContainerDeps['loader'],
     vm: fakeVm as unknown as ManagedContainerDeps['vm'],
     limactlPath: '/opt/homebrew/bin/limactl',
-    limaHome: '/Users/dev/.browseros/lima',
-    vmName: 'browseros-vm',
+    limaHome: '/Users/dev/.pannamos/lima',
+    vmName: 'pannamos-vm',
     lockDir: opts.lockDir,
   }
   return { deps, getCapturedSpec: () => capturedSpec }
@@ -180,7 +180,7 @@ describe('HermesContainerRuntime', () => {
   it('getPerAgentHomeDir returns the canonical host-side home path', () => {
     const { runtime } = makeRuntime()
     expect(runtime.getPerAgentHomeDir('agent-7')).toBe(
-      '/host/browseros/vm/hermes/harness/agent-7/home',
+      join('/host/browseros', 'vm', 'hermes', 'harness', 'agent-7', 'home'),
     )
   })
 
@@ -199,8 +199,8 @@ describe('HermesContainerRuntime', () => {
     const out = runtime.buildExecArgv(
       runtime.getAcpExecSpec({ HERMES_HOME: '/data/agents/harness/a/home' }),
     )
-    expect(out).toContain('LIMA_HOME=/Users/dev/.browseros/lima')
-    expect(out).toContain('shell --workdir / browseros-vm --')
+    expect(out).toContain('LIMA_HOME=/Users/dev/.pannamos/lima')
+    expect(out).toContain('shell --workdir / pannamos-vm --')
     expect(out).toContain('nerdctl exec -i')
     expect(out).toContain(HERMES_CONTAINER_NAME)
     expect(out).toContain('/opt/hermes/.venv/bin/hermes acp')

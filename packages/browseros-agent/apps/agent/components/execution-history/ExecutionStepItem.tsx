@@ -52,7 +52,7 @@ const getStateIcon = (step: ExecutionStepRecord) => {
   }
 
   if (step.state === 'output-denied') {
-    return <ShieldAlert className="h-4 w-4 text-orange-500" />
+    return <ShieldAlert className="h-4 w-4 text-amber-600" />
   }
 
   if (step.state === 'output-error') {
@@ -115,7 +115,7 @@ export const ExecutionStepItem: FC<{
               <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
                 Result
               </h4>
-              <div className="rounded-md bg-orange-500/10 p-3 text-orange-700 text-sm dark:text-orange-300">
+              <div className="rounded-md bg-amber-500/10 p-3 text-amber-700 text-sm dark:text-amber-300">
                 {deniedReason ?? 'The requested action was denied.'}
               </div>
             </div>

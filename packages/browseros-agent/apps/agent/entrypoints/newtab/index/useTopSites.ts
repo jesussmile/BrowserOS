@@ -8,12 +8,22 @@ interface TopSite {
   url: string
 }
 
+function isUpstreamAuthHistoryEntry(site: chrome.topSites.MostVisitedURL) {
+  const text = `${site.title} ${site.url}`
+  return (
+    /\bBrowserOS\b/i.test(text) && /\b(auth|callback|success)\b/i.test(text)
+  )
+}
+
 export const useTopSites = () => {
   const [topSites, setTopSites] = useState<TopSite[]>([])
 
   useEffect(() => {
     chrome.topSites.get().then((urls) => {
-      const firstFive = take(urls, 5)
+      const firstFive = take(
+        urls.filter((url) => !isUpstreamAuthHistoryEntry(url)),
+        5,
+      )
       setTopSites(
         firstFive.map((each) => {
           let icon: string | undefined

@@ -1,5 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query'
-import { type FC, useMemo, useState } from 'react'
+import { type FC, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -11,7 +10,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useSessionInfo } from '@/lib/auth/sessionStorage'
 import { useAgentServerUrl } from '@/lib/browseros/useBrowserOSProviders'
 import {
   CHATGPT_PRO_OAUTH_COMPLETED_EVENT,
@@ -24,10 +22,7 @@ import {
   QWEN_CODE_OAUTH_DISCONNECTED_EVENT,
   QWEN_CODE_OAUTH_STARTED_EVENT,
 } from '@/lib/constants/analyticsEvents'
-import { GetProfileIdByUserIdDocument } from '@/lib/conversations/graphql/uploadConversationDocument'
-import { getQueryKeyFromDocument } from '@/lib/graphql/getQueryKeyFromDocument'
-import { useGraphqlMutation } from '@/lib/graphql/useGraphqlMutation'
-import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
+import { shouldPreferAuthenticatedChatGPTProvider } from '@/lib/llm-providers/chatgptDefaultProvider'
 import type { ProviderTemplate } from '@/lib/llm-providers/providerTemplates'
 import { testProvider } from '@/lib/llm-providers/testProvider'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
@@ -39,13 +34,10 @@ import {
 import { track } from '@/lib/metrics/track'
 import { ConfiguredProvidersList } from './ConfiguredProvidersList'
 import { DeviceCodeDialog } from './DeviceCodeDialog'
-import {
-  DeleteRemoteLlmProviderDocument,
-  GetRemoteLlmProvidersDocument,
-} from './graphql/aiSettingsDocument'
 import type { IncompleteProvider } from './IncompleteProviderCard'
 import { IncompleteProvidersList } from './IncompleteProvidersList'
 import { LlmProvidersHeader } from './LlmProvidersHeader'
+import { LocalRuntimeCapabilities } from './LocalRuntimeCapabilities'
 import { McpPromoBanner } from './McpPromoBanner'
 import { NewProviderDialog } from './NewProviderDialog'
 import { ProviderTemplatesSection } from './ProviderTemplatesSection'
@@ -92,7 +84,7 @@ const OAUTH_PROVIDERS_CONFIG: Record<string, OAuthProviderFlowConfig> = {
 }
 
 /**
- * BrowserOS AI pane — manage LLM providers and the default model.
+ * PannamOS AI pane — manage LLM providers and the default model.
  */
 export const BrowserOsAiPane: FC = () => {
   const {
@@ -103,44 +95,10 @@ export const BrowserOsAiPane: FC = () => {
     deleteProvider,
   } = useLlmProviders()
   const { baseUrl: agentServerUrl } = useAgentServerUrl()
-  const { sessionInfo } = useSessionInfo()
-  const queryClient = useQueryClient()
-
-  const userId = sessionInfo.user?.id
-
-  const { data: profileData } = useGraphqlQuery(
-    GetProfileIdByUserIdDocument,
-    // biome-ignore lint/style/noNonNullAssertion: guarded by enabled
-    { userId: userId! },
-    { enabled: !!userId },
-  )
-  const profileId = profileData?.profileByUserId?.rowId
-
-  const { data: remoteProvidersData } = useGraphqlQuery(
-    GetRemoteLlmProvidersDocument,
-    // biome-ignore lint/style/noNonNullAssertion: guarded by enabled
-    { profileId: profileId! },
-    { enabled: !!profileId },
-  )
-
-  const deleteRemoteProviderMutation = useGraphqlMutation(
-    DeleteRemoteLlmProviderDocument,
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: [getQueryKeyFromDocument(GetRemoteLlmProvidersDocument)],
-        })
-      },
-    },
-  )
 
   const incompleteProviders = useMemo<IncompleteProvider[]>(() => {
-    if (!remoteProvidersData?.llmProviders?.nodes) return []
-    const localProviderIds = new Set(providers.map((p) => p.id))
-    return remoteProvidersData.llmProviders.nodes
-      .filter((node): node is NonNullable<typeof node> => node !== null)
-      .filter((node) => !localProviderIds.has(node.rowId))
-  }, [remoteProvidersData, providers])
+    return []
+  }, [])
 
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -214,6 +172,33 @@ export const BrowserOsAiPane: FC = () => {
     setIsNewDialogOpen(true)
   }
 
+  const chatgptProvider = providers.find(
+    (provider) => provider.type === 'chatgpt-pro',
+  )
+  const currentDefaultProvider = providers.find(
+    (provider) => provider.id === defaultProviderId,
+  )
+
+  useEffect(() => {
+    if (!chatgptPro.status?.authenticated || !chatgptProvider) return
+    if (defaultProviderId === chatgptProvider.id) return
+    if (!shouldPreferAuthenticatedChatGPTProvider(currentDefaultProvider)) {
+      return
+    }
+
+    setDefaultProvider(chatgptProvider.id).catch(() => {})
+  }, [
+    chatgptPro.status?.authenticated,
+    chatgptProvider,
+    currentDefaultProvider,
+    defaultProviderId,
+    setDefaultProvider,
+  ])
+
+  const handleConnectChatGPTAccount = () => {
+    chatgptPro.startOAuthFlow(agentServerUrl ?? undefined)
+  }
+
   const handleUseTemplate = (template: ProviderTemplate) => {
     // OAuth providers: trigger OAuth flow
     const oauthFlow = oauthFlows[template.id]
@@ -254,7 +239,6 @@ export const BrowserOsAiPane: FC = () => {
     }
 
     await deleteProvider(providerToDelete.id)
-    deleteRemoteProviderMutation.mutate({ rowId: providerToDelete.id })
     setProviderToDelete(null)
   }
 
@@ -283,9 +267,6 @@ export const BrowserOsAiPane: FC = () => {
 
   const confirmDeleteIncompleteProvider = () => {
     if (incompleteProviderToDelete) {
-      deleteRemoteProviderMutation.mutate({
-        rowId: incompleteProviderToDelete.rowId,
-      })
       setIncompleteProviderToDelete(null)
     }
   }
@@ -354,9 +335,17 @@ export const BrowserOsAiPane: FC = () => {
       <LlmProvidersHeader
         providers={providers}
         defaultProviderId={defaultProviderId}
+        chatgptAccountButtonLabel={
+          chatgptProvider
+            ? 'Reconnect ChatGPT account'
+            : 'Connect ChatGPT account'
+        }
         onDefaultProviderChange={setDefaultProvider}
+        onConnectChatGPTAccount={handleConnectChatGPTAccount}
         onAddProvider={handleAddProvider}
       />
+
+      <LocalRuntimeCapabilities />
 
       <McpPromoBanner />
 
@@ -419,11 +408,11 @@ export const BrowserOsAiPane: FC = () => {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Synced Provider</AlertDialogTitle>
+            <AlertDialogTitle>Delete Provider</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete "
               {incompleteProviderToDelete?.name}
-              "? This will remove it from all your devices.
+              "? This will remove it from this device.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

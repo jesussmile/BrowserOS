@@ -1,15 +1,35 @@
-import { unlinkSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs'
 import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { PATHS } from '@browseros/shared/constants/paths'
 import type { ServerDiscoveryConfig } from '@browseros/shared/types/server-config'
 import { logger } from './logger'
+
+export function getDefaultStorageRoot(): string {
+  if (process.platform === 'win32') {
+    return PATHS.WINDOWS_STORAGE_ROOT
+  }
+
+  return join(homedir(), PATHS.BROWSEROS_DIR_NAME)
+}
+
+export function getStorageRoot(): string {
+  const override = process.env.PANNAMOS_STORAGE_ROOT?.trim()
+  return override ? resolve(override) : getDefaultStorageRoot()
+}
 
 export function getBrowserosDir(): string {
   const override = process.env.BROWSEROS_DIR?.trim()
   if (override) {
     return override
+  }
+  const storageRoot = process.env.PANNAMOS_STORAGE_ROOT?.trim()
+  if (storageRoot) {
+    return join(resolve(storageRoot), PATHS.SERVER_STATE_DIR_NAME)
+  }
+  if (process.env.NODE_ENV !== 'development') {
+    return join(getDefaultStorageRoot(), PATHS.SERVER_STATE_DIR_NAME)
   }
   const dirName =
     process.env.NODE_ENV === 'development'
@@ -20,7 +40,7 @@ export function getBrowserosDir(): string {
 
 export function logDevelopmentBrowserosDir(): void {
   if (process.env.NODE_ENV !== 'development') return
-  logger.info(`Using development BrowserOS directory: ${getBrowserosDir()}`)
+  logger.info(`Using development PannamOS directory: ${getBrowserosDir()}`)
 }
 
 export function getSessionsDir(): string {
@@ -31,9 +51,48 @@ export function getCacheDir(): string {
   return join(getBrowserosDir(), PATHS.CACHE_DIR_NAME)
 }
 
-/** Returns the durable SQLite database path for local BrowserOS server state. */
+export function getOutputsDir(): string {
+  const override = process.env.PANNAMOS_OUTPUTS_DIR?.trim()
+  return override
+    ? resolve(override)
+    : join(getStorageRoot(), PATHS.OUTPUTS_DIR_NAME)
+}
+
+export function getManualOutputsDir(): string {
+  return join(getOutputsDir(), PATHS.MANUAL_OUTPUT_DIR_NAME)
+}
+
+export function getToolCallOutputsDir(): string {
+  return join(getOutputsDir(), PATHS.TOOL_CALL_OUTPUT_DIR_NAME)
+}
+
+export function getGoalLoopOutputsDir(): string {
+  return join(getOutputsDir(), PATHS.GOAL_LOOP_OUTPUT_DIR_NAME)
+}
+
+export function getLogsDir(): string {
+  return join(getStorageRoot(), PATHS.LOGS_DIR_NAME)
+}
+
+/** Returns the durable SQLite database path for local PannamOS server state. */
 export function getDbPath(): string {
-  return join(getBrowserosDir(), PATHS.DB_DIR_NAME, PATHS.DB_FILE_NAME)
+  const dbDir = join(getBrowserosDir(), PATHS.DB_DIR_NAME)
+  const dbPath = join(dbDir, PATHS.DB_FILE_NAME)
+  copyLegacyDbIfNeeded(dbDir, dbPath)
+  return dbPath
+}
+
+function copyLegacyDbIfNeeded(dbDir: string, dbPath: string): void {
+  const legacyDbPath = join(dbDir, PATHS.LEGACY_DB_FILE_NAME)
+  if (existsSync(dbPath) || !existsSync(legacyDbPath)) return
+
+  mkdirSync(dbDir, { recursive: true })
+  for (const suffix of ['', '-wal', '-shm']) {
+    const legacyPath = `${legacyDbPath}${suffix}`
+    if (existsSync(legacyPath)) {
+      copyFileSync(legacyPath, `${dbPath}${suffix}`)
+    }
+  }
 }
 
 export function getVmCacheDir(): string {
@@ -92,6 +151,10 @@ export async function ensureBrowserosDir(): Promise<void> {
   await mkdir(getSessionsDir(), { recursive: true })
   await mkdir(getLazyMonitoringRunsDir(), { recursive: true })
   await mkdir(getVmDisksDir(), { recursive: true })
+  await mkdir(getManualOutputsDir(), { recursive: true })
+  await mkdir(getToolCallOutputsDir(), { recursive: true })
+  await mkdir(getGoalLoopOutputsDir(), { recursive: true })
+  await mkdir(getLogsDir(), { recursive: true })
 }
 
 export async function cleanOldSessions(): Promise<void> {

@@ -69,6 +69,7 @@ export const StepConnectApps = ({
   }, [isPolling, refreshIntegrations])
 
   const isAppConnected = (appName: string) => {
+    if (servers?.some((s) => s.managedServerName === appName)) return true
     return userIntegrations?.integrations?.some(
       (i) => i.name === appName && i.is_authenticated,
     )
@@ -98,6 +99,7 @@ export const StepConnectApps = ({
           managedServerName: appName,
           managedServerDescription:
             RECOMMENDED_APPS.find((a) => a.name === appName)?.description ?? '',
+          connectionMode: response.connectionMode ?? 'local_catalog',
         })
       }
 
@@ -145,10 +147,10 @@ export const StepConnectApps = ({
               <Plug className="size-6 text-[var(--accent-orange)]" />
             </div>
             <h2 className="font-bold text-3xl tracking-tight">
-              Connect your apps
+              Add app shortcuts
             </h2>
             <p className="text-base text-muted-foreground">
-              Let your assistant work with your email, calendar, and more
+              Save local app entries now; live tools can use custom MCP servers
             </p>
           </div>
 
@@ -181,7 +183,7 @@ export const StepConnectApps = ({
                     ) : connected ? (
                       <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1 font-medium text-green-600 text-xs">
                         <Check className="size-3" />
-                        Connected
+                        Added
                       </span>
                     ) : (
                       <Button
@@ -193,7 +195,7 @@ export const StepConnectApps = ({
                         {isConnecting ? (
                           <Loader2 className="size-3 animate-spin" />
                         ) : (
-                          'Connect'
+                          'Add'
                         )}
                       </Button>
                     )}

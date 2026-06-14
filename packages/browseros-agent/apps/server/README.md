@@ -1,6 +1,6 @@
-# BrowserOS Server
+# PannamOS Server
 
-MCP server and AI agent loop powering BrowserOS browser automation. This is the core backend — it connects to Chromium via CDP, exposes 53+ MCP tools, and runs the AI agent that interprets natural language into browser actions.
+MCP server and AI agent loop powering PannamOS browser automation. This is the core backend; it connects to Chromium via CDP, exposes MCP tools, and runs the AI agent that interprets natural language into browser actions.
 
 > **Runtime:** [Bun](https://bun.sh) · **Framework:** [Hono](https://hono.dev) · **AI:** [Vercel AI SDK](https://sdk.vercel.ai) · **License:** [AGPL-3.0](../../../../LICENSE)
 
@@ -15,7 +15,7 @@ MCP server and AI agent loop powering BrowserOS browser automation. This is the 
                                 │ HTTP / SSE / StreamableHTTP
                                 ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│                    BrowserOS Server (Bun)                             │
+│                    PannamOS Server (Bun)                              │
 │                                                                      │
 │   /mcp ─────── MCP tool endpoints (53+ tools)                       │
 │   /chat ────── Agent streaming (AI SDK)                              │
@@ -117,7 +117,7 @@ apps/server/
 ### Prerequisites
 
 - [Bun](https://bun.sh) runtime
-- A running BrowserOS instance (for CDP connectivity)
+- A running PannamOS instance (for CDP connectivity)
 
 ### Setup
 
@@ -135,7 +135,7 @@ See the [agent monorepo README](../../README.md) for full environment variable r
 
 ```bash
 bun run test:tools          # Tool-level tests
-bun run test:integration    # Full integration tests (requires running BrowserOS)
+bun run test:integration    # Full integration tests (requires running PannamOS)
 ```
 
 ### Building
@@ -157,4 +157,4 @@ bun scripts/build/server.ts --target=all --no-upload
 |------|-------------|---------|
 | 9100 | `BROWSEROS_SERVER_PORT` | HTTP server (MCP, chat, health) |
 | 9000 | `BROWSEROS_CDP_PORT` | Chromium CDP (server connects as client) |
-| 9300 | `BROWSEROS_EXTENSION_PORT` | Legacy BrowserOS launch arg kept for compatibility |
+| 9300 | `BROWSEROS_EXTENSION_PORT` | Legacy launch arg kept for compatibility |

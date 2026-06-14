@@ -10,6 +10,8 @@
  * support.
  */
 
+import { existsSync } from 'node:fs'
+import { delimiter, extname, isAbsolute, join } from 'node:path'
 import { logger } from '../../logger'
 import { buildMacosAcpAdapterPath } from '../bundled-bun'
 import type { AgentRuntime } from './agent-runtime'
@@ -250,7 +252,7 @@ export abstract class HostProcessAgentRuntime implements AgentRuntime {
   ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
     if (this.deps.spawnProbe) return this.deps.spawnProbe(cmd, timeoutMs)
     const env = buildHostProcessProbeEnv({ overrides: this.deps.probeEnv })
-    const proc = Bun.spawn(cmd as string[], {
+    const proc = Bun.spawn(resolveProbeCommand(cmd, env), {
       stdout: 'pipe',
       stderr: 'pipe',
       env,
@@ -270,4 +272,45 @@ export abstract class HostProcessAgentRuntime implements AgentRuntime {
     clearTimeout(timer)
     return { exitCode, stdout, stderr }
   }
+}
+
+function resolveProbeCommand(
+  cmd: ReadonlyArray<string>,
+  env?: NodeJS.ProcessEnv,
+): string[] {
+  if (process.platform !== 'win32') return [...cmd]
+  const [binary, ...args] = cmd
+  if (
+    !binary ||
+    binary.includes('/') ||
+    binary.includes('\\') ||
+    isAbsolute(binary)
+  ) {
+    return [...cmd]
+  }
+  const resolved = resolveWindowsPathBinary(binary, env)
+  return [resolved ?? binary, ...args]
+}
+
+function resolveWindowsPathBinary(
+  binary: string,
+  env?: NodeJS.ProcessEnv,
+): string | null {
+  const pathEnv = env?.PATH ?? process.env.PATH
+  if (!pathEnv) return null
+  const extensions = extname(binary)
+    ? ['']
+    : (env?.PATHEXT ?? process.env.PATHEXT ?? '.COM;.EXE;.BAT;.CMD')
+        .split(';')
+        .filter(Boolean)
+  for (const dir of pathEnv.split(delimiter)) {
+    if (!dir) continue
+    for (const ext of extensions) {
+      const candidate = join(dir, `${binary}${ext.toLowerCase()}`)
+      if (existsSync(candidate)) return candidate
+      const originalCaseCandidate = join(dir, `${binary}${ext}`)
+      if (existsSync(originalCaseCandidate)) return originalCaseCandidate
+    }
+  }
+  return null
 }

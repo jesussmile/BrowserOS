@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { McpServerIcon } from '@/entrypoints/app/connect-mcp/McpServerIcon'
 import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetUserMCPIntegrations'
+import type { ChatMode } from '@/entrypoints/sidepanel/index/chatTypes'
 import {
   ONBOARDING_COMPLETED_EVENT,
   ONBOARDING_DEMO_TRIGGERED_EVENT,
@@ -14,177 +15,12 @@ import {
   onboardingCompletedStorage,
   onboardingProfileStorage,
 } from '@/lib/onboarding/onboardingStorage'
-
-interface DemoSuggestion {
-  label: string
-  query: string
-  mode: 'chat' | 'agent'
-  appName?: string
-}
-
-const APP_PROMPTS: Record<string, Omit<DemoSuggestion, 'appName'>[]> = {
-  Gmail: [
-    {
-      label: 'Summarize my unread emails and highlight anything urgent',
-      query: 'Summarize my unread emails and highlight anything urgent',
-      mode: 'agent',
-    },
-    {
-      label: 'Show the last 5 emails from my manager',
-      query:
-        'Show the last 5 emails from my manager and list any action items mentioned',
-      mode: 'agent',
-    },
-  ],
-  'Google Calendar': [
-    {
-      label: 'What meetings do I have tomorrow?',
-      query:
-        "What meetings do I have tomorrow? Who's attending and what's the agenda?",
-      mode: 'agent',
-    },
-    {
-      label: 'Show my schedule for this week',
-      query: 'Show my schedule for this week and flag any double-bookings',
-      mode: 'agent',
-    },
-  ],
-  Notion: [
-    {
-      label: 'List my recently updated Notion pages',
-      query: 'List my recently updated Notion pages and summarize what changed',
-      mode: 'agent',
-    },
-    {
-      label: 'Show all Notion tasks assigned to me',
-      query: 'Show all Notion tasks assigned to me and their current status',
-      mode: 'agent',
-    },
-  ],
-  Slack: [
-    {
-      label: 'Show my unread Slack mentions',
-      query: 'Show my unread Slack mentions and summarize each thread',
-      mode: 'agent',
-    },
-    {
-      label: 'Latest messages in my most active Slack channels',
-      query: 'What are the latest messages in my most active Slack channels?',
-      mode: 'agent',
-    },
-  ],
-  GitHub: [
-    {
-      label: 'Show my open GitHub issues sorted by priority',
-      query: 'Show my open GitHub issues sorted by priority',
-      mode: 'agent',
-    },
-    {
-      label: 'List my recent GitHub pull requests',
-      query: 'List my recent GitHub pull requests and their review status',
-      mode: 'agent',
-    },
-  ],
-  Linear: [
-    {
-      label: 'What Linear tickets are assigned to me?',
-      query:
-        'What Linear tickets are assigned to me? Show status and any recent comments',
-      mode: 'agent',
-    },
-    {
-      label: 'Show my current Linear sprint progress',
-      query:
-        'Show my current Linear sprint and how many tickets are completed vs remaining',
-      mode: 'agent',
-    },
-  ],
-  Jira: [
-    {
-      label: 'What Jira tickets are assigned to me?',
-      query: 'What Jira tickets are assigned to me? Show status and priority',
-      mode: 'agent',
-    },
-    {
-      label: 'Summarize recent comments on my open Jira issues',
-      query: 'Summarize recent comments on my open Jira issues',
-      mode: 'agent',
-    },
-  ],
-  'Google Docs': [
-    {
-      label: 'List my recently edited Google Docs',
-      query:
-        'List my recently edited Google Docs and who else has been editing them',
-      mode: 'agent',
-    },
-    {
-      label: 'Show my shared Google Docs with recent comments',
-      query: 'Show my shared Google Docs and summarize any recent comments',
-      mode: 'agent',
-    },
-  ],
-}
-
-function buildDefaultSuggestions(company?: string): DemoSuggestion[] {
-  return [
-    company
-      ? {
-          label: `Search for ${company} and summarize the latest news`,
-          query: `Search for ${company} and summarize the latest news about them`,
-          mode: 'agent' as const,
-        }
-      : {
-          label: "What's the top tech news today",
-          query: "What's the top tech news today? Give me a brief summary",
-          mode: 'agent' as const,
-        },
-    {
-      label: "What's the top news today",
-      query:
-        "What's the top news today? Give me a brief summary of the biggest stories",
-      mode: 'agent' as const,
-    },
-    {
-      label: 'Find me a good restaurant nearby',
-      query: 'Find me a good restaurant nearby',
-      mode: 'agent' as const,
-    },
-  ]
-}
-
-function buildPersonalizedSuggestions(
-  connectedApps: string[],
-): DemoSuggestion[] {
-  const suggestions: DemoSuggestion[] = []
-  const usedApps = new Set<string>()
-
-  for (const appName of connectedApps) {
-    if (usedApps.has(appName)) continue
-
-    const prompts = APP_PROMPTS[appName]
-    if (prompts?.[0]) {
-      suggestions.push({ ...prompts[0], appName })
-      usedApps.add(appName)
-    }
-  }
-
-  return suggestions
-}
-
-function buildCompanyPrompt(company?: string): DemoSuggestion {
-  return company
-    ? {
-        label: `Search for ${company} and summarize the latest news`,
-        query: `Search for ${company} and summarize the latest news about them`,
-        mode: 'agent',
-      }
-    : {
-        label: "What's the top tech news today",
-        query: "What's the top tech news today? Give me a brief summary",
-        mode: 'agent',
-      }
-}
+import {
+  buildCompanyPrompt,
+  buildDefaultSuggestions,
+  buildPersonalizedSuggestions,
+  type DemoSuggestion,
+} from './onboardingDemoSuggestions'
 
 export const OnboardingDemo = () => {
   const [customQuery, setCustomQuery] = useState('')
@@ -221,7 +57,7 @@ export const OnboardingDemo = () => {
 
   const handleDemoTask = async (
     query: string,
-    mode: 'chat' | 'agent',
+    mode: ChatMode,
     index: number,
   ) => {
     track(ONBOARDING_DEMO_TRIGGERED_EVENT, {
@@ -243,7 +79,7 @@ export const OnboardingDemo = () => {
 
     track(ONBOARDING_DEMO_TRIGGERED_EVENT, {
       query: customQuery.trim(),
-      mode: 'agent',
+      mode: 'goal',
       source: 'custom',
     })
     await completeOnboarding()
@@ -252,7 +88,7 @@ export const OnboardingDemo = () => {
     await new Promise((resolve) => setTimeout(resolve, 500))
     openSidePanelWithSearch('open', {
       query: customQuery.trim(),
-      mode: 'agent',
+      mode: 'goal',
     })
   }
 
@@ -273,7 +109,7 @@ export const OnboardingDemo = () => {
             Try your first task
           </h2>
           <p className="text-base text-muted-foreground">
-            Pick a suggestion or type your own to see BrowserOS in action
+            Pick a suggestion or type your own to see PannamOS in action
           </p>
         </div>
 

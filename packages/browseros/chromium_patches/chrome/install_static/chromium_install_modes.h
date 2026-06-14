@@ -7,7 +7,7 @@ index ee62888f89705..7ec72d302bc4b 100644
  // The brand-specific product name to be included as a component of the install
  // and user data directory paths.
 -inline constexpr wchar_t kProductPathName[] = L"Chromium";
-+inline constexpr wchar_t kProductPathName[] = L"BrowserOS";
++inline constexpr wchar_t kProductPathName[] = L"PannamOS";
  
  // The brand-specific safe browsing client name.
  inline constexpr char kSafeBrowsingName[] = "chromium";
@@ -19,27 +19,27 @@ index ee62888f89705..7ec72d302bc4b 100644
 -        .base_app_name = L"Chromium",              // A distinct base_app_name.
 -        .base_app_id = L"Chromium",                // A distinct base_app_id.
 -        .browser_prog_id_prefix = L"ChromiumHTM",  // Browser ProgID prefix.
-+            L"{CF887152-7CB8-4393-84CC-1BACF0EDE1D1}",  // BrowserOS app GUID.
-+        .base_app_name = L"BrowserOS",              // A distinct base_app_name.
-+        .base_app_id = L"BrowserOS",                // A distinct base_app_id.
-+        .browser_prog_id_prefix = L"BOSHTML",  // Browser ProgID prefix.
++            L"{150ED0EE-4CD9-410C-BFCC-8F2C4715B2CC}",  // PannamOS app GUID.
++        .base_app_name = L"PannamOS",              // A distinct base_app_name.
++        .base_app_id = L"PannamOS",                // A distinct base_app_id.
++        .browser_prog_id_prefix = L"PannamOSHTML",  // Browser ProgID prefix.
          .browser_prog_id_description =
 -            L"Chromium HTML Document",  // Browser ProgID description.
 -        .direct_launch_url_scheme = "chromium",
 -        .pdf_prog_id_prefix = L"ChromiumPDF",  // PDF ProgID prefix.
-+            L"BrowserOS HTML Document",  // Browser ProgID description.
-+        .direct_launch_url_scheme = "browseros",
-+        .pdf_prog_id_prefix = L"BOSPDF",  // PDF ProgID prefix.
++            L"PannamOS HTML Document",  // Browser ProgID description.
++        .direct_launch_url_scheme = "pannamos",
++        .pdf_prog_id_prefix = L"PannamOSPDF",  // PDF ProgID prefix.
          .pdf_prog_id_description =
 -            L"Chromium PDF Document",  // PDF ProgID description.
-+            L"BrowserOS PDF Document",  // PDF ProgID description.
++            L"PannamOS PDF Document",  // PDF ProgID description.
          .active_setup_guid =
 -            L"{7D2B3E1D-D096-4594-9D8F-A6667F12E0AC}",  // Active Setup
-+            L"{0EF5669B-7FD7-4138-A91F-E466631ADE97}",  // Active Setup
++            L"{0D758066-C723-4FC5-B1C9-DEFD2A0CBF67}",  // Active Setup
                                                          // GUID.
          .legacy_command_execute_clsid =
 -            L"{A2DF06F9-A21A-44A8-8A99-8B9C84F29160}",  // CommandExecuteImpl
-+            L"{AFDDB293-0724-49E5-A4EC-1096BF6C84AF}",  // CommandExecuteImpl
++            L"{693E854A-5C8C-4F0D-ABFB-85FE3591C7DB}",  // CommandExecuteImpl
                                                          // CLSID.
 -        .toast_activator_clsid = {0x635EFA6F,
 -                                  0x08D6,
@@ -67,33 +67,33 @@ index ee62888f89705..7ec72d302bc4b 100644
 -                                0x4075,
 -                                {0x91, 0x74, 0x75, 0xd0, 0xb1, 0x99, 0xd3,
 -                                 0xcb}},  // ISystemTraceSessionChromium IID and
-+        // BrowserOS: custom CLSIDs for Windows integration
-+        .toast_activator_clsid = {0xE76CCE76,
-+                                  0x27A7,
-+                                  0x46D3,
-+                                  {0x9E, 0xED, 0xCC, 0x8C, 0x5E, 0xD7, 0xBE,
-+                                   0x72}},  // Toast Activator CLSID.
-+        .elevator_clsid = {0x29ED629C,
-+                           0x1F0E,
-+                           0x47D1,
-+                           {0xA6, 0x84, 0x93, 0x97, 0xAC, 0xDB, 0x71,
-+                            0xAB}},  // Elevator CLSID.
-+        .elevator_iid = {0x2F95E08F,
-+                         0x118A,
-+                         0x49B7,
-+                         {0xA0, 0xE0, 0x49, 0x1C, 0x36, 0x80, 0x82,
-+                          0x76}},  // IElevator IID and TypeLib
-+        // {2F95E08F-118A-49B7-A0E0-491C36808276}.
-+        .tracing_service_clsid = {0xC39C8575,
-+                                  0x9F42,
-+                                  0x4599,
-+                                  {0x96, 0xF1, 0x19, 0xDB, 0x7A, 0xEB, 0x51,
-+                                   0xAF}},  // SystemTraceSession CLSID.
-+        .tracing_service_iid = {0x16F5E1C4,
-+                                0xD385,
-+                                0x4D38,
-+                                {0xB0, 0xA1, 0x6E, 0x47, 0x6B, 0x39, 0xC0,
-+                                 0x35}},  // ISystemTraceSessionChromium IID and
++        // PannamOS: custom CLSIDs for Windows integration
++        .toast_activator_clsid = {0x8D2D7695,
++                                  0xFE3D,
++                                  0x4167,
++                                  {0x8E, 0xD4, 0xA6, 0x90, 0xA6, 0xED, 0x0F,
++                                   0x81}},  // Toast Activator CLSID.
++        .elevator_clsid = {0xACB5925A,
++                           0x68EF,
++                           0x480B,
++                           {0xBE, 0xCA, 0x46, 0xC6, 0x3C, 0x39, 0xED,
++                            0x7D}},  // Elevator CLSID.
++        .elevator_iid = {0x4F5C77E9,
++                         0xC017,
++                         0x4E25,
++                         {0x83, 0xF3, 0x02, 0x56, 0x49, 0x17, 0xA1,
++                          0x55}},  // IElevator IID and TypeLib
++        // {4F5C77E9-C017-4E25-83F3-02564917A155}.
++        .tracing_service_clsid = {0x47CA0581,
++                                  0x0EAB,
++                                  0x4979,
++                                  {0xB3, 0xBE, 0xF7, 0x56, 0x6B, 0x2B, 0x83,
++                                   0x79}},  // SystemTraceSession CLSID.
++        .tracing_service_iid = {0xFA2C667C,
++                                0x5612,
++                                0x466F,
++                                {0x9E, 0x91, 0xD2, 0x77, 0xB0, 0x07, 0xB5,
++                                 0xD9}},  // ISystemTraceSessionChromium IID and
                                            // TypeLib
          .default_channel_name =
              L"",  // Empty default channel name since no update integration.

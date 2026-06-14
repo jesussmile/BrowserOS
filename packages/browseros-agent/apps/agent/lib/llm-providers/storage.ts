@@ -2,12 +2,12 @@ import { storage } from '@wxt-dev/storage'
 import { sessionStorage } from '@/lib/auth/sessionStorage'
 import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
+import { normalizeChatGPTProModelId } from './chatgptProModels'
 import type { LlmProviderConfig, LlmProvidersBackup } from './types'
-import { uploadLlmProvidersToGraphql } from './uploadLlmProvidersToGraphql'
 
 /** Default provider ID constant */
-export const DEFAULT_PROVIDER_ID = 'browseros'
-const DEFAULT_PROVIDER_NAME = 'BrowserOS'
+export const DEFAULT_PROVIDER_ID = 'openai'
+const DEFAULT_PROVIDER_NAME = 'OpenAI API'
 
 /** Storage key for LLM providers array */
 export const providersStorage = storage.defineItem<LlmProviderConfig[]>(
@@ -19,60 +19,45 @@ export const providersStorage = storage.defineItem<LlmProviderConfig[]>(
         providers: LlmProviderConfig[] | null,
       ): LlmProviderConfig[] | null => {
         if (!providers) return providers
-        return providers.map((provider) => {
-          if (
-            provider.id === DEFAULT_PROVIDER_ID &&
-            provider.type === 'browseros'
-          ) {
-            return { ...provider, contextWindow: 200000 }
-          }
-          return provider
-        })
+        return normalizeProvidersForPrivateBuild(providers)
       },
     },
   },
 )
 
-/** Backup providers to BrowserOS prefs (write-only, best-effort) */
-async function backupToBrowserOS(backup: LlmProvidersBackup): Promise<void> {
+/** Backup providers to local browser prefs (write-only, best-effort). */
+async function backupToPannamOSPrefs(
+  backup: LlmProvidersBackup,
+): Promise<void> {
   try {
     const adapter = getBrowserOSAdapter()
     await adapter.setPref(BROWSEROS_PREFS.PROVIDERS, JSON.stringify(backup))
   } catch {
-    // BrowserOS API not available - ignore
+    // Local browser API not available - ignore
   }
 }
 
 /**
- * Setup one-way sync of LLM providers to BrowserOS prefs
+ * Setup one-way sync of LLM providers to local browser prefs.
  * @public
  */
-export function setupLlmProvidersBackupToBrowserOS(): () => void {
+export function setupLlmProvidersBackupToPannamOS(): () => void {
   const unsubscribe = providersStorage.watch(async (providers) => {
     if (providers) {
       const defaultProviderId = await defaultProviderIdStorage.getValue()
-      await backupToBrowserOS({ defaultProviderId, providers })
+      await backupToPannamOSPrefs({ defaultProviderId, providers })
     }
   })
   return unsubscribe
 }
 
 export async function syncLlmProviders(): Promise<void> {
-  const providers = await providersStorage.getValue()
-  if (!providers || providers.length === 0) return
-
-  const session = await sessionStorage.getValue()
-  const userId = session?.user?.id
-  if (!userId) return
-
-  await uploadLlmProvidersToGraphql(providers, userId)
+  // Private fork default: provider configuration stays local. Model requests
+  // still go to the configured provider when the user sends a prompt.
+  await sessionStorage.getValue()
 }
 
-/**
- * Setup one-way sync of LLM providers to GraphQL backend
- * Watches for storage changes and uploads non-sensitive provider data
- * @public
- */
+/** Private local-first build keeps provider metadata off upstream cloud. */
 export function setupLlmProvidersSyncToBackend(): () => void {
   syncLlmProviders().catch(() => {})
 
@@ -89,7 +74,7 @@ export function setupLlmProvidersSyncToBackend(): () => void {
 /** Load providers from storage */
 export async function loadProviders(): Promise<LlmProviderConfig[]> {
   const providers = (await providersStorage.getValue()) || []
-  const normalizedProviders = normalizeProviderNames(providers)
+  const normalizedProviders = normalizeProvidersForPrivateBuild(providers)
 
   // Keep storage consistent so every consumer sees the same provider name.
   if (
@@ -101,17 +86,17 @@ export async function loadProviders(): Promise<LlmProviderConfig[]> {
   return normalizedProviders
 }
 
-/** Creates the default BrowserOS provider configuration */
-export function createDefaultBrowserOSProvider(): LlmProviderConfig {
+/** Creates the default private BYOK provider configuration. */
+export function createDefaultPannamOSProvider(): LlmProviderConfig {
   const timestamp = Date.now()
   return {
     id: DEFAULT_PROVIDER_ID,
-    type: 'browseros',
+    type: 'openai',
     name: DEFAULT_PROVIDER_NAME,
-    baseUrl: 'https://api.browseros.com/v1',
-    modelId: 'browseros-auto',
+    baseUrl: 'https://api.openai.com/v1',
+    modelId: 'gpt-5',
     supportsImages: true,
-    contextWindow: 200000,
+    contextWindow: 128000,
     temperature: 0.2,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -120,29 +105,27 @@ export function createDefaultBrowserOSProvider(): LlmProviderConfig {
 
 /** Creates the default providers configuration. Only call when storage is empty. */
 export function createDefaultProvidersConfig(): LlmProviderConfig[] {
-  return [createDefaultBrowserOSProvider()]
+  return [createDefaultPannamOSProvider()]
 }
 
-/**
- * Normalize built-in provider names back to "BrowserOS" (e.g. from "Kimi K2.5"
- * which was set during a previous partnership launch).
- */
-function normalizeProviderNames(
+const privateBuildBlockedProviderTypes = new Set<LlmProviderConfig['type']>([
+  'browseros',
+])
+
+/** Removes BrowserOS cloud defaults from private local-first builds. */
+export function normalizeProvidersForPrivateBuild(
   providers: LlmProviderConfig[],
 ): LlmProviderConfig[] {
-  return providers.map((provider) => {
-    if (
-      provider.id === DEFAULT_PROVIDER_ID &&
-      provider.type === 'browseros' &&
-      provider.name !== DEFAULT_PROVIDER_NAME
-    ) {
-      return {
-        ...provider,
-        name: DEFAULT_PROVIDER_NAME,
-      }
-    }
-    return provider
-  })
+  const normalized = providers
+    .filter((provider) => !privateBuildBlockedProviderTypes.has(provider.type))
+    .map((provider) => {
+      const modelId = normalizeChatGPTProModelId(
+        provider.type,
+        provider.modelId,
+      )
+      return modelId === provider.modelId ? provider : { ...provider, modelId }
+    })
+  return normalized.length > 0 ? normalized : createDefaultProvidersConfig()
 }
 
 /** Storage key for the default provider ID */

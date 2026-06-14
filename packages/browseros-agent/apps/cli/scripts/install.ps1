@@ -1,13 +1,13 @@
 #
-# Install browseros-cli for Windows — downloads the latest release binary.
+# Install browseros-cli for Windows from a private internal release channel.
 #
 # Usage (PowerShell — save and run):
-#   Invoke-WebRequest -Uri "https://cdn.browseros.com/cli/install.ps1" -OutFile install.ps1
+#   $env:BROWSEROS_CLI_DOWNLOAD_BASE="https://internal.example/cli"
 #   .\install.ps1
 #   .\install.ps1 -Version "0.1.0" -Dir "C:\tools\browseros"
 #
 # Usage (one-liner, uses env vars for options):
-#   & { $env:BROWSEROS_VERSION="0.1.0"; irm https://cdn.browseros.com/cli/install.ps1 | iex }
+#   & { $env:BROWSEROS_CLI_DOWNLOAD_BASE="https://internal.example/cli"; $env:BROWSEROS_VERSION="0.1.0"; .\install.ps1 }
 #
 
 param(
@@ -20,8 +20,13 @@ $ErrorActionPreference = "Stop"
 # TLS 1.2 — older PS 5.1 defaults to TLS 1.0
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$CdnBase = "https://cdn.browseros.com/cli"
+$CdnBase = $env:BROWSEROS_CLI_DOWNLOAD_BASE
 $Binary = "browseros-cli"
+
+if (-not $CdnBase) {
+    Write-Error "BROWSEROS_CLI_DOWNLOAD_BASE must point to an internal private CLI release channel."
+    exit 1
+}
 
 # When piped via irm | iex, param() is ignored — fall back to env vars
 if (-not $Version) { $Version = $env:BROWSEROS_VERSION }

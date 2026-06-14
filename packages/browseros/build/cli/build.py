@@ -37,13 +37,18 @@ from ..common.utils import (
 from ..modules.setup.clean import CleanModule
 from ..modules.setup.git import GitSetupModule, SparkleSetupModule
 from ..modules.setup.configure import ConfigureModule
-from ..modules.compile import CompileModule, UniversalBuildModule
+from ..modules.compile import (
+    CompileModule,
+    UniversalBuildModule,
+    WindowsInstallerCompileModule,
+)
 from ..modules.patches.patches import PatchesModule
 from ..modules.patches.series_patches import SeriesPatchesModule
 from ..modules.resources.chromium_replace import ChromiumReplaceModule
 from ..modules.resources.string_replaces import StringReplacesModule
 from ..modules.resources.resources import ResourcesModule
-from ..modules.extensions import BundledExtensionsModule
+from ..modules.resources.pannamos_server_resources import PannamOSServerResourcesModule
+from ..modules.extensions import BundledExtensionsModule, PannamOSAgentExtensionModule
 from ..modules.storage import UploadModule, DownloadResourcesModule
 
 # Platform-specific modules (imported unconditionally - validation handles platform checks)
@@ -67,10 +72,13 @@ AVAILABLE_MODULES = {
     "chromium_replace": ChromiumReplaceModule,
     "string_replaces": StringReplacesModule,
     "download_resources": DownloadResourcesModule,  # Download binaries from R2
+    "pannamos_server_resources": PannamOSServerResourcesModule,
     "resources": ResourcesModule,
     "bundled_extensions": BundledExtensionsModule,
+    "pannamos_agent_extension": PannamOSAgentExtensionModule,
     # Build
     "compile": CompileModule,
+    "compile_windows_installer": WindowsInstallerCompileModule,
     "universal_build": UniversalBuildModule,  # macOS universal binary (arm64 + x64)
     # Sign (platform-specific, validated at runtime)
     "sign_macos": MacOSSignModule,

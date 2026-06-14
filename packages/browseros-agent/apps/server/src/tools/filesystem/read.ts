@@ -39,28 +39,13 @@ function getSelectedLines(
     throw new Error('filesystem_read limit must be greater than 0.')
   }
 
-  if (limit !== undefined && limit > MAX_READ_LINES) {
-    throw new Error(
-      `filesystem_read accepts at most ${MAX_READ_LINES} lines per call. Retry with a smaller limit.`,
-    )
-  }
-
+  const readLimit =
+    limit === undefined ? MAX_READ_LINES : Math.min(limit, MAX_READ_LINES)
   const remaining = allLines.slice(startIdx)
-  if (limit !== undefined && limit < remaining.length) {
-    return remaining.slice(0, limit)
+  if (readLimit < remaining.length) {
+    return remaining.slice(0, readLimit)
   }
   return remaining
-}
-
-function validateSelectedRange(selected: string[], startIdx: number): void {
-  const startLineNum = startIdx + 1
-  const endLineNum = startIdx + selected.length
-
-  if (selected.length > MAX_READ_LINES) {
-    throw new Error(
-      `Requested lines ${startLineNum}-${endLineNum} exceed the ${MAX_READ_LINES}-line limit for filesystem_read. Retry with offset and limit=${MAX_READ_LINES} or smaller.`,
-    )
-  }
 }
 
 function formatReadResult(args: {
@@ -72,25 +57,81 @@ function formatReadResult(args: {
   const startLineNum = args.startIdx + 1
   const endLineNum = args.startIdx + args.selected.length
   const width = String(endLineNum).length
-  const numbered = args.selected
-    .map((line, i) => {
-      const num = String(args.startIdx + i + 1).padStart(width)
-      return `${num} | ${line}`
-    })
-    .join('\n')
+  const notes: string[] = []
 
-  let text = numbered
-  if (args.limit && endLineNum < args.totalLines) {
-    text += `\n\n(${args.totalLines - endLineNum} more lines in file. Use offset=${endLineNum + 1} to continue reading.)`
-  } else if (args.startIdx > 0) {
-    text += `\n\n(Showing lines ${startLineNum}-${endLineNum} of ${args.totalLines})`
-  }
-
-  if (text.length > MAX_READ_CHARS) {
-    throw new Error(
-      `Requested lines ${startLineNum}-${endLineNum} produce ${text.length} characters in the response, above the ${MAX_READ_CHARS}-character limit for filesystem_read. Retry with a smaller limit or a later offset.`,
+  if (args.limit !== undefined && args.limit > MAX_READ_LINES) {
+    notes.push(
+      `Requested limit ${args.limit} was capped at ${MAX_READ_LINES} lines.`,
     )
   }
+
+  const buildFooter = (lastLineNum: number, charTruncated: boolean) => {
+    const footerNotes = [...notes]
+    if (charTruncated) {
+      footerNotes.push(
+        `Output was truncated to stay under the ${MAX_READ_CHARS}-character filesystem_read response limit.`,
+      )
+    }
+    if (lastLineNum < args.totalLines) {
+      footerNotes.push(
+        `${args.totalLines - lastLineNum} more lines in file. Use offset=${lastLineNum + 1} to continue reading.`,
+      )
+    } else if (args.startIdx > 0) {
+      footerNotes.push(
+        `Showing lines ${startLineNum}-${lastLineNum} of ${args.totalLines}.`,
+      )
+    }
+    return footerNotes.length ? `\n\n(${footerNotes.join(' ')})` : ''
+  }
+
+  const returned: string[] = []
+  let charTruncated = false
+  let bodyLength = 0
+
+  for (let i = 0; i < args.selected.length; i++) {
+    const lineNum = args.startIdx + i + 1
+    const prefix = `${String(lineNum).padStart(width)} | `
+    const rawLine = args.selected[i]
+    const separatorLength = returned.length > 0 ? 1 : 0
+    const fullLine = `${prefix}${rawLine}`
+    const fullFooter = buildFooter(lineNum, false)
+
+    if (
+      bodyLength + separatorLength + fullLine.length + fullFooter.length <=
+      MAX_READ_CHARS
+    ) {
+      returned.push(fullLine)
+      bodyLength += separatorLength + fullLine.length
+      continue
+    }
+
+    const truncatedFooter = buildFooter(lineNum, true)
+    const suffix = ' [truncated]'
+    const available =
+      MAX_READ_CHARS -
+      bodyLength -
+      separatorLength -
+      truncatedFooter.length -
+      prefix.length -
+      suffix.length
+
+    if (available > 0) {
+      returned.push(`${prefix}${rawLine.slice(0, available)}${suffix}`)
+      bodyLength += separatorLength + prefix.length + available + suffix.length
+    }
+    charTruncated = true
+    break
+  }
+
+  const lastReturnedLineNum = args.startIdx + Math.max(returned.length, 1)
+  let text = returned.join('\n')
+
+  if (!text) {
+    const lineNum = startLineNum
+    text = `${String(lineNum).padStart(width)} | `
+  }
+
+  text += buildFooter(lastReturnedLineNum, charTruncated)
 
   return { text }
 }
@@ -135,7 +176,6 @@ export function createReadTool(cwd: string) {
         }
 
         const selected = getSelectedLines(allLines, startIdx, params.limit)
-        validateSelectedRange(selected, startIdx)
         return formatReadResult({
           selected,
           startIdx,

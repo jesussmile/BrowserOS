@@ -1,5 +1,19 @@
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 
+export type FormattableAttachment =
+  | {
+      kind: 'file'
+      mediaType: string
+      name?: string
+      text: string
+    }
+  | {
+      kind: 'image'
+      mediaType: string
+      name?: string
+      dataUrl: string
+    }
+
 export function formatBrowserContext(browserContext?: BrowserContext): string {
   if (!browserContext?.activeTab && !browserContext?.selectedTabs?.length) {
     return ''
@@ -41,9 +55,23 @@ export function formatBrowserContext(browserContext?: BrowserContext): string {
 /** Strip XML-like tags that match our prompt delimiters to prevent injection. */
 function sanitizeForPrompt(s: string): string {
   return s.replace(
-    /<\/?(?:selected_text|USER_QUERY|page_context|AGENT_PROMPT|soul|security|workspace)[^>]*>/gi,
+    /<\/?(?:selected_text|attachment|attachments|USER_QUERY|page_context|AGENT_PROMPT|soul|security|workspace)[^>]*>/gi,
     '',
   )
+}
+
+function formatAttachments(attachments?: FormattableAttachment[]): string {
+  const files = attachments?.filter((attachment) => attachment.kind === 'file')
+  if (!files?.length) return ''
+
+  const blocks = files.map((attachment, index) => {
+    const name = sanitizeForPrompt(attachment.name ?? `attachment-${index + 1}`)
+    const mediaType = sanitizeForPrompt(attachment.mediaType)
+    const text = sanitizeForPrompt(attachment.text)
+    return `<attachment name="${name.replace(/"/g, "'")}" mediaType="${mediaType.replace(/"/g, "'")}">\n${text}\n</attachment>`
+  })
+
+  return `<attachments>\n${blocks.join('\n\n')}\n</attachments>\n\n`
 }
 
 export function formatUserMessage(
@@ -51,6 +79,7 @@ export function formatUserMessage(
   browserContext?: BrowserContext,
   selectedText?: string,
   selectedTextSource?: { url: string; title: string },
+  attachments?: FormattableAttachment[],
 ): string {
   const contextPrefix = formatBrowserContext(browserContext)
 
@@ -67,5 +96,7 @@ export function formatUserMessage(
     selectedTextBlock = `<selected_text${source}>\n${sanitizedText}\n</selected_text>\n\n`
   }
 
-  return `${contextPrefix}${selectedTextBlock}<USER_QUERY>\n${message}\n</USER_QUERY>`
+  const attachmentBlock = formatAttachments(attachments)
+
+  return `${contextPrefix}${selectedTextBlock}${attachmentBlock}<USER_QUERY>\n${message}\n</USER_QUERY>`
 }

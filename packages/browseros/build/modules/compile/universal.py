@@ -176,7 +176,9 @@ class UniversalBuildModule(CommandModule):
         self._merge_universal(ctx, built_apps[0], built_apps[1])
 
         # Verify universal binary was created
-        universal_app = ctx.chromium_src / "out/Default_universal/BrowserOS.app"
+        universal_app = (
+            ctx.chromium_src / "out/Default_universal" / ctx.BROWSEROS_APP_NAME
+        )
         if not universal_app.exists():
             raise RuntimeError(f"Universal binary not found: {universal_app}")
 
@@ -318,7 +320,7 @@ class UniversalBuildModule(CommandModule):
 
         # Create universal directory (already cleaned in _clean_build_directories)
         universal_dir.mkdir(parents=True, exist_ok=True)
-        universal_app = universal_dir / "BrowserOS.app"
+        universal_app = universal_dir / ctx.BROWSEROS_APP_NAME
 
         # Find universalizer script
         universalizer_script = (

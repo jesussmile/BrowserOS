@@ -26,7 +26,7 @@ export const AvailableManagedServers: FC<AvailableManagedServersProps> = ({
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
         <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between hover:opacity-50">
           <div className="flex flex-col items-start">
-            <h3 className="font-semibold text-lg">Built-in Apps</h3>
+            <h3 className="font-semibold text-lg">Local App Catalog</h3>
             <p className="text-muted-foreground text-sm">
               {isLoading
                 ? 'Loading...'

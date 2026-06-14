@@ -27,6 +27,7 @@ export interface AgentRowData {
   adapter: HarnessAgentAdapter | 'unknown'
   modelLabel: string | null
   reasoningEffort: string | null
+  roleLabel: string | null
   status: AgentLiveness
   lastUsedAt: number | null
   pinned: boolean

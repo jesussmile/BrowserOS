@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 )
 
@@ -33,9 +32,9 @@ func AcquireLock(path string) (*Lock, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if err := tryLockFile(file); err != nil {
 		file.Close()
-		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
+		if errors.Is(err, ErrAlreadyRunning) {
 			return nil, ErrAlreadyRunning
 		}
 		return nil, err
@@ -47,7 +46,7 @@ func (l *Lock) Close() error {
 	if l == nil || l.file == nil {
 		return nil
 	}
-	unlockErr := syscall.Flock(int(l.file.Fd()), syscall.LOCK_UN)
+	unlockErr := unlockFile(l.file)
 	closeErr := l.file.Close()
 	l.file = nil
 	if unlockErr != nil {

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-export const MCP_INSTRUCTIONS = `BrowserOS MCP Server — Browser automation and 40+ external service integrations.
+export const MCP_INSTRUCTIONS = `PannamOS MCP Server — local-first browser automation and approved external service integrations.
 
 ## Browser Automation
 
@@ -23,13 +23,14 @@ Error recovery:
 - Element not found → scroll down, re-snapshot, retry.
 - After 2 failed attempts → describe the blocker and ask user for guidance.
 
-## External Integrations (Klavis Strata)
+## External Integrations
 
-40+ services: Gmail, Slack, GitHub, Notion, Google Calendar, Jira, Linear, Figma, Salesforce, and more.
+Use external app tools only when they are registered locally for this session.
 
-Before using any Strata integration, call connector_mcp_servers(server_name) to verify the service is connected.
-- If connected → proceed with Strata discovery tools below.
-- If not connected → prompt the user with the returned authUrl to authenticate. After they confirm, call connector_mcp_servers again to verify.
+Before using any external integration, inspect the tools available in this MCP session.
+- If a local tool is connected → proceed with read-only discovery before mutating actions.
+- If no local tool is connected → use browser automation instead.
+- Do not open or request upstream cloud auth URLs.
 
 Progressive discovery — do not guess action names:
 1. connector_mcp_servers → check connection status first.
@@ -39,10 +40,10 @@ Progressive discovery — do not guess action names:
 5. execute_action → use include_output_fields to limit response size.
 6. search_documentation → fallback keyword search.
 
-Authentication — when execute_action returns an auth error:
-1. Call connector_mcp_servers(server_name) to get a fresh authUrl.
-2. Prompt the user to open the authUrl and authenticate.
-3. Wait for explicit user confirmation before retrying.
+Authentication — when an external app tool returns an auth error:
+1. Explain that the local connector is not authenticated.
+2. Ask the user to reconnect the local connector.
+3. Continue with browser automation when possible.
 
 ## General
 

@@ -1,9 +1,9 @@
-diff --git a/chrome/browser/browseros/server/browseros_server_utils.cc b/chrome/browser/browseros/server/browseros_server_utils.cc
+﻿diff --git a/chrome/browser/browseros/server/browseros_server_utils.cc b/chrome/browser/browseros/server/browseros_server_utils.cc
 new file mode 100644
 index 0000000000000..a24b53aad5b6c
 --- /dev/null
 +++ b/chrome/browser/browseros/server/browseros_server_utils.cc
-@@ -0,0 +1,518 @@
+@@ -0,0 +1,523 @@
 +// Copyright 2024 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -171,14 +171,19 @@ index 0000000000000..a24b53aad5b6c
 +// =============================================================================
 +
 +base::FilePath GetExecutionDir() {
-+  base::FilePath user_data_dir;
-+  if (!base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir)) {
-+    LOG(ERROR) << "browseros: Failed to resolve DIR_USER_DATA path";
-+    return base::FilePath();
-+  }
++  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
++  base::FilePath exec_dir;
 +
-+  base::FilePath exec_dir =
-+      user_data_dir.Append(FILE_PATH_LITERAL(".browseros"));
++  if (command_line->HasSwitch(browseros::kPannamOSExecutionDir)) {
++    exec_dir = command_line->GetSwitchValuePath(browseros::kPannamOSExecutionDir);
++  } else if (command_line->HasSwitch(browseros::kPannamOSStorageRoot)) {
++    exec_dir = command_line
++                   ->GetSwitchValuePath(browseros::kPannamOSStorageRoot)
++                   .Append(FILE_PATH_LITERAL("ServerState"));
++  } else {
++    exec_dir = base::FilePath(FILE_PATH_LITERAL("E:\\PannamOS"))
++                   .Append(FILE_PATH_LITERAL("ServerState"));
++  }
 +
 +  if (!base::PathExists(exec_dir)) {
 +    if (!base::CreateDirectory(exec_dir)) {
@@ -226,7 +231,7 @@ index 0000000000000..a24b53aad5b6c
 +  }
 +#endif
 +
-+  return exe_dir.Append(FILE_PATH_LITERAL("BrowserOSServer"))
++  return exe_dir.Append(FILE_PATH_LITERAL("PannamOSServer"))
 +      .Append(FILE_PATH_LITERAL("default"))
 +      .Append(FILE_PATH_LITERAL("resources"));
 +}

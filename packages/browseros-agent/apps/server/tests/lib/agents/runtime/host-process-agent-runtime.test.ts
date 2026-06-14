@@ -6,7 +6,7 @@
 import { describe, expect, it, mock } from 'bun:test'
 import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { delimiter, join } from 'node:path'
+import { join } from 'node:path'
 import {
   ActionNotSupportedError,
   buildHostProcessProbeEnv,
@@ -200,11 +200,17 @@ describe('HostProcessAgentRuntime', () => {
     it('passes probeEnv overrides to the spawned version probe', async () => {
       const dir = await mkdtemp(join(tmpdir(), 'host-probe-'))
       try {
-        const bin = join(dir, 'fake-cli')
-        await writeFile(bin, '#!/bin/sh\necho from-probe-env\n')
-        await chmod(bin, 0o755)
+        const binaryName =
+          process.platform === 'win32' ? 'fake-cli.cmd' : 'fake-cli'
+        const bin = join(dir, binaryName)
+        if (process.platform === 'win32') {
+          await writeFile(bin, '@echo from-probe-env\r\n')
+        } else {
+          await writeFile(bin, '#!/bin/sh\necho from-probe-env\n')
+          await chmod(bin, 0o755)
+        }
         const r = new TestRuntime({
-          binaryName: 'fake-cli',
+          binaryName,
           probeEnv: { PATH: dir },
         })
         await r.probeHealth()
@@ -221,7 +227,7 @@ describe('HostProcessAgentRuntime', () => {
         env: { HOME: '/Users/tester', PATH: '/base/bin' },
         platform: 'darwin',
       })
-      expect(env?.PATH.split(delimiter).slice(0, 5)).toEqual([
+      expect(env?.PATH.split(':').slice(0, 5)).toEqual([
         '/Users/tester/.local/bin',
         '/Users/tester/.bun/bin',
         '/opt/homebrew/bin',
@@ -237,7 +243,7 @@ describe('HostProcessAgentRuntime', () => {
         overrides: { DEBUG_PROBE: '1' },
       })
       expect(env?.DEBUG_PROBE).toBe('1')
-      expect(env?.PATH?.split(delimiter).slice(0, 5)).toEqual([
+      expect(env?.PATH?.split(':').slice(0, 5)).toEqual([
         '/Users/tester/.local/bin',
         '/Users/tester/.bun/bin',
         '/opt/homebrew/bin',

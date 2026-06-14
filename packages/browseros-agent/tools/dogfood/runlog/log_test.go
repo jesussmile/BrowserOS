@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -94,6 +95,9 @@ func TestFollowFromStartReadsExistingEntries(t *testing.T) {
 }
 
 func TestFollowReopensReplacedLogFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows cannot replace an open followed file")
+	}
 	path := filepath.Join(t.TempDir(), "daemon.jsonl")
 	if err := os.WriteFile(path, []byte(""), 0644); err != nil {
 		t.Fatal(err)

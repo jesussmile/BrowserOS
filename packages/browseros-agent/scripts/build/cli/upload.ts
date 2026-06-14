@@ -8,7 +8,7 @@ import { log } from '../log'
 import { createR2Client, joinObjectKey, uploadFileToObject } from '../server/r2'
 import { type CliUploadConfig, loadCliUploadConfig } from './config'
 
-const CDN_BASE_URL = 'https://cdn.browseros.com'
+const CDN_BASE_URL = 'https://browseros.invalid'
 const JSON_CONTENT_TYPE = 'application/json; charset=utf-8'
 const CLI_ARCHIVE_PATTERN =
   /^browseros-cli_(?<version>[^_]+)_(?<os>darwin|linux|windows)_(?<arch>amd64|arm64)\.(?<ext>tar\.gz|zip)$/

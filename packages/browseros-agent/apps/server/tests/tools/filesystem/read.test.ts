@@ -108,20 +108,22 @@ describe('filesystem_read', () => {
     expect(result.text).toContain('absolute')
   })
 
-  it('errors when a read would exceed the line limit', async () => {
+  it('caps unbounded reads at the line limit and returns a continuation offset', async () => {
     const manyLines = Array.from(
       { length: MAX_READ_LINES + 50 },
       (_, i) => `line ${i + 1}`,
     ).join('\n')
     await writeFile(join(tmpDir, 'large.txt'), manyLines)
     const result = await exec({ path: 'large.txt' })
-    expect(result.isError).toBe(true)
-    expect(result.text).toContain(`${MAX_READ_LINES}-line limit`)
+    expect(result.isError).toBeUndefined()
+    expect(result.text).toContain(`1 | line 1`)
+    expect(result.text).toContain(`${MAX_READ_LINES} | line ${MAX_READ_LINES}`)
+    expect(result.text).toContain(`Use offset=${MAX_READ_LINES + 1}`)
   })
 
-  it('errors when the requested limit exceeds the maximum allowed lines', async () => {
+  it('caps requested limits above the maximum allowed lines', async () => {
     const manyLines = Array.from(
-      { length: 50 },
+      { length: MAX_READ_LINES + 1 },
       (_, i) => `line ${i + 1}`,
     ).join('\n')
     await writeFile(join(tmpDir, 'limited.txt'), manyLines)
@@ -129,8 +131,11 @@ describe('filesystem_read', () => {
       path: 'limited.txt',
       limit: MAX_READ_LINES + 1,
     })
-    expect(result.isError).toBe(true)
-    expect(result.text).toContain(`at most ${MAX_READ_LINES} lines`)
+    expect(result.isError).toBeUndefined()
+    expect(result.text).toContain(
+      `Requested limit ${MAX_READ_LINES + 1} was capped at ${MAX_READ_LINES} lines.`,
+    )
+    expect(result.text).toContain(`Use offset=${MAX_READ_LINES + 1}`)
   })
 
   it('errors when limit is zero', async () => {
@@ -140,12 +145,14 @@ describe('filesystem_read', () => {
     expect(result.text).toContain('greater than 0')
   })
 
-  it('errors when a requested range exceeds the character limit', async () => {
+  it('truncates a requested range that exceeds the character limit', async () => {
     const longLine = 'x'.repeat(MAX_READ_CHARS + 100)
     await writeFile(join(tmpDir, 'chars.txt'), longLine)
     const result = await exec({ path: 'chars.txt', limit: 1 })
-    expect(result.isError).toBe(true)
-    expect(result.text).toContain(`${MAX_READ_CHARS}-character limit`)
+    expect(result.isError).toBeUndefined()
+    expect(result.text).toContain('[truncated]')
+    expect(result.text).toContain(`${MAX_READ_CHARS}-character`)
+    expect(result.text.length).toBeLessThanOrEqual(MAX_READ_CHARS)
   })
 
   it('handles files with UTF-8 BOM', async () => {

@@ -4,6 +4,7 @@
 import re
 from ...common.module import CommandModule, ValidationError
 from ...common.context import Context
+from ...common.product_identity import PANNAMOS_PRODUCT_IDENTITY
 from ...common.utils import log_info, log_success, log_error, log_warning
 
 
@@ -22,8 +23,12 @@ class StringReplacesModule(CommandModule):
             raise RuntimeError("Failed to apply string replacements")
 
 
-# Strings we want to replace but that we also replace automatically
-# for XTB files
+_PRODUCT_NAME = PANNAMOS_PRODUCT_IDENTITY.product_name
+_COMPANY_NAME = PANNAMOS_PRODUCT_IDENTITY.company_name
+
+# Strings we want to replace but that we also replace automatically for XTB
+# files. Keep BrowserOS author attribution intact, but make runtime product
+# names resolve to the private PannamOS identity.
 branding_replacements = [
     (
         r"The Chromium Authors. All rights reserved.",
@@ -33,11 +38,12 @@ branding_replacements = [
         r"Google LLC. All rights reserved.",
         r"The BrowserOS Authors. All rights reserved.",
     ),
-    (r"The Chromium Authors", r"BrowserOS Software Inc"),
-    (r"Google Chrome", r"BrowserOS"),
-    (r"(Google)(?! Play)", r"BrowserOS"),
-    (r"Chromium", r"BrowserOS"),
-    (r"Chrome", r"BrowserOS"),
+    (r"The Chromium Authors", _COMPANY_NAME),
+    (r"Google Chrome", _PRODUCT_NAME),
+    (r"BrowserOS(?! Authors)", _PRODUCT_NAME),
+    (r"(Google)(?! Play)", _PRODUCT_NAME),
+    (r"Chromium", _PRODUCT_NAME),
+    (r"Chrome", _PRODUCT_NAME),
 ]
 
 # List of files to apply replacements to

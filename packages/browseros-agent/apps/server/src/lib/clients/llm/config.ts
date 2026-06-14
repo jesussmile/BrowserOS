@@ -26,7 +26,7 @@ export async function resolveLLMConfig(
     return resolveOAuthConfig(config, browserosId, {
       providerId: 'chatgpt-pro',
       displayName: 'ChatGPT Plus/Pro',
-      defaultModel: 'gpt-5.3-codex',
+      defaultModel: 'gpt-5.4',
       useRefresh: true,
       extraFields: (tokens) => ({
         upstreamProvider: 'openai',
@@ -111,11 +111,11 @@ async function resolveBrowserOSConfig(
   const configUrl = INLINED_ENV.BROWSEROS_CONFIG_URL
   if (!configUrl) {
     throw new Error(
-      'BROWSEROS_CONFIG_URL environment variable is required for BrowserOS provider',
+      'BROWSEROS_CONFIG_URL environment variable is required for the managed provider',
     )
   }
 
-  logger.debug('Resolving BROWSEROS config', { configUrl, browserosId })
+  logger.debug('Resolving managed provider config', { configUrl, browserosId })
 
   const browserosConfig = await fetchBrowserOSConfig(configUrl, browserosId)
   const llmConfig = getLLMConfigFromProvider(browserosConfig, 'default')

@@ -1,32 +1,19 @@
 import type { FC, PropsWithChildren } from 'react'
 import { useEffect } from 'react'
-import { identify, resetIdentity } from '@/lib/analytics/identify'
-import { useSession } from './auth-client'
+import { resetIdentity } from '@/lib/analytics/identify'
 import { useSessionInfo } from './sessionStorage'
 
+/**
+ * Private fork default: cloud account login is disabled. Provider OAuth
+ * flows remain separate and are handled by the local PannamOS server.
+ */
 export const AuthProvider: FC<PropsWithChildren> = ({ children }) => {
-  const { data, isPending } = useSession()
   const { updateSessionInfo } = useSessionInfo()
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only re-run when data changes
   useEffect(() => {
-    if (!isPending) {
-      updateSessionInfo({
-        session: data?.session,
-        user: data?.user,
-      })
-
-      if (data?.user?.id) {
-        identify({
-          id: data.user.id,
-          email: data.user.email,
-          name: data.user.name || undefined,
-        })
-      } else {
-        resetIdentity()
-      }
-    }
-  }, [data, isPending])
+    updateSessionInfo({})
+    resetIdentity()
+  }, [updateSessionInfo])
 
   return <>{children}</>
 }

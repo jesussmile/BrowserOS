@@ -1,44 +1,44 @@
 ---
-title: "BrowserOS"
-description: "The open-source AI browser that turns your words into actions"
+title: "PannamOS"
+description: "The private local-first AI browser fork"
 ---
 
 <Frame>
-  <img src="/images/hero-dark.png" alt="BrowserOS in action" />
+  <img src="/images/hero-dark.png" alt="PannamOS in action" />
 </Frame>
 
-BrowserOS is an AI-native browser that lets you automate any web task by describing it in plain English. Built on Chromium, it runs AI agents locally on your machine—keeping your data private while giving you superpowers for browsing.
+PannamOS is a private BrowserOS-derived Chromium browser for local-first AI browser work. It runs the assistant, provider setup, sessions, Goal Mode state, and verification data locally without requiring BrowserOS login or BrowserOS cloud sync.
 
-**Open source. Privacy-first. The browser for the AI era.**
+**Private fork. Local-first. Built for durable browser automation.**
 
 ## Three Ways to Use AI
 
 <Columns cols={3}>
   <Card title="Chat Mode" icon="message">
-    Ask questions about the page you're viewing. Summarize articles, extract data, translate content—without leaving the page.
+    Ask questions about the page you're viewing. Summarize articles, extract data, translate content, and keep provider state local.
   </Card>
-  <Card title="Agent Mode" icon="robot">
+  <Card title="Goal Mode" icon="robot">
     Describe a task and watch AI execute it: clicking, typing, navigating. Automate form filling, data extraction, and multi-step workflows.
   </Card>
-  <Card title="Graph Mode" icon="sitemap">
-    Build reliable, repeatable workflows as visual graphs. Edit steps, save, and run anytime. *Coming soon.*
+  <Card title="Workflow Mode" icon="sitemap">
+    Run repeatable browser automations with scoped local provider and connector access.
   </Card>
 </Columns>
 
 ## Quick Start
 
 <Steps>
-  <Step title="Download BrowserOS">
-    Get the latest release from [browseros.com](https://browseros.com) for macOS, Windows, or Linux.
+  <Step title="Build or install PannamOS">
+    Use the private Windows build and install runbooks. Do not use public BrowserOS installers as the PannamOS install path.
   </Step>
   <Step title="Import from Chrome">
     Navigate to `chrome://settings/importData` and import your bookmarks, passwords, and settings in one click.
   </Step>
   <Step title="Configure your AI">
-    BrowserOS includes a default AI model with limited daily usage for testing. For the full experience, bring your own API keys.
+    PannamOS supports local ChatGPT Plus/Pro OAuth, OpenAI API keys, and OpenAI-compatible local endpoints. BrowserOS account login is not required.
 
     <Card title="Set up your LLM provider" icon="key" href="/features/bring-your-own-llm">
-      Configure Gemini, Claude, OpenAI, or run models locally with Ollama
+      Configure ChatGPT Plus/Pro OAuth, OpenAI, or local OpenAI-compatible endpoints
     </Card>
   </Step>
   <Step title="Try it out">
@@ -74,33 +74,33 @@ BrowserOS is an AI-native browser that lets you automate any web task by describ
   </Tab>
 </Tabs>
 
-## Why BrowserOS?
+## Why PannamOS?
 
 <Columns cols={2}>
   <Card title="Privacy-First" icon="shield-check">
-    Run AI locally with Ollama, or bring your own API keys. Your browsing data never leaves your machine unless you choose.
+    Run AI with local OAuth/API provider settings. Your browser sessions and Goal Loop state stay in the PannamOS local data directory.
   </Card>
   <Card title="Open Source" icon="code-branch">
-    100% open source under AGPL-3.0. Inspect the code, contribute features, or fork it for your needs.
+    Derived from the AGPL-3.0 BrowserOS codebase with attribution preserved.
   </Card>
   <Card title="Works with Your Tools" icon="plug">
-    Built-in MCP servers for Gmail, Calendar, Docs, Sheets, Notion. Connect to Claude Code or Gemini CLI for developer workflows.
+    Supports local MCP connector setup and rejects remote/cloud connector defaults in the private build.
   </Card>
   <Card title="Chrome Compatible" icon="chrome">
     All your Chrome extensions work. Import bookmarks, passwords, and settings in one click.
   </Card>
 </Columns>
 
-## Community
+## Project Links
 
 <Columns cols={3}>
-  <Card title="Discord" icon="discord" href="https://discord.gg/YKwjt5vuKr">
-    Get help and share feedback
+  <Card title="Private Runbooks" icon="book" href="/">
+    Start with the local install, provider, and standalone browser runbooks.
   </Card>
   <Card title="GitHub" icon="github" href="https://github.com/BrowserOS-ai/BrowserOS">
-    Star us and contribute
+    Upstream BrowserOS source and attribution.
   </Card>
-  <Card title="Twitter" icon="x-twitter" href="https://x.com/browserOS_ai">
-    Follow for updates
+  <Card title="Plan" icon="list-check" href="/">
+    PannamOS standalone browser and upstream porting plan.
   </Card>
 </Columns>

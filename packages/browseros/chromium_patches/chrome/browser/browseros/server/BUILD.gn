@@ -110,18 +110,18 @@ index 0000000000000..85e9eaaba051c
 +  import("//build/config/apple/symbols.gni")
 +  import("//build/config/mac/mac_sdk.gni")
 +
-+  # Bundle data for macOS - recursively packages resources/ to Resources/BrowserOSServer/default/
++  # Bundle data for macOS - recursively packages resources/ to Resources/PannamOSServer/default/
 +  bundle_data("browseros_resources_bundle") {
 +    sources = [ "resources" ]
-+    outputs = [ "{{bundle_resources_dir}}/BrowserOSServer/default/{{source_file_part}}" ]
++    outputs = [ "{{bundle_resources_dir}}/PannamOSServer/default/{{source_file_part}}" ]
 +    # TODO: Re-enable validation when resources/bin/browseros_server is available
 +    # deps = [ ":validate_browseros_resources" ]
 +  }
 +} else {
-+  # Copy for Windows/Linux - recursively packages resources/ to <exe_dir>/BrowserOSServer/default/
++  # Copy for Windows/Linux - recursively packages resources/ to <exe_dir>/PannamOSServer/default/
 +  copy("browseros_resources_copy") {
 +    sources = [ "resources" ]
-+    outputs = [ "$root_out_dir/BrowserOSServer/default/{{source_file_part}}" ]
++    outputs = [ "$root_out_dir/PannamOSServer/default/{{source_file_part}}" ]
 +    # TODO: Re-enable validation when resources/bin/browseros_server is available
 +    # deps = [ ":validate_browseros_resources" ]
 +  }

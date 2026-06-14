@@ -12,7 +12,6 @@ import {
   useHarnessAgents,
 } from '@/entrypoints/app/agents/useAgents'
 import { ImportDataHint } from '@/entrypoints/newtab/index/ImportDataHint'
-import { SignInHint } from '@/entrypoints/newtab/index/SignInHint'
 import { useActiveHint } from '@/entrypoints/newtab/index/useActiveHint'
 import {
   buildSidepanelChatTargets,
@@ -103,9 +102,9 @@ export const AgentCommandHome: FC = () => {
     [targets],
   )
 
-  // Default the picker to the user's default LLM provider (BrowserOS out of the
-  // box) so the composer works with zero agents. Re-resolve if the current
-  // selection disappears (e.g. its provider/agent was removed).
+  // Default the picker to the user's default LLM provider so the composer
+  // works with zero agents. Re-resolve if the current selection disappears
+  // (e.g. its provider/agent was removed).
   useEffect(() => {
     if (targets.length === 0) return
     const stillValid =
@@ -178,7 +177,7 @@ export const AgentCommandHome: FC = () => {
               next?
             </h1>
             <p className="mx-auto max-w-2xl text-muted-foreground text-sm leading-6 [text-wrap:pretty]">
-              Pick BrowserOS AI or any agent, then start a task — all without
+              Pick PannamOS AI or any agent, then start a task — all without
               leaving this tab.
             </p>
           </div>
@@ -216,7 +215,6 @@ export const AgentCommandHome: FC = () => {
         ) : null}
       </div>
 
-      {activeHint === 'signin' ? <SignInHint /> : null}
       {activeHint === 'import' ? <ImportDataHint /> : null}
     </div>
   )

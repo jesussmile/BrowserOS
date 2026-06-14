@@ -48,7 +48,7 @@ function buildSearchResults(
 }
 
 /**
- * Builds the new-tab suggestion sections from BrowserOS actions, tab actions, and fixed Google search results.
+ * Builds the new-tab suggestion sections from PannamOS actions, tab actions, and fixed Google search results.
  */
 export const useSuggestions = ({ query, selectedTabs }: UseSuggestionsArgs) => {
   const trimmedQuery = query.trim()
@@ -79,8 +79,7 @@ export const useSuggestions = ({ query, selectedTabs }: UseSuggestionsArgs) => {
       )
       result.push({
         id: 'browseros',
-        // Removed title since browserOS result will only have 1 item
-        title: '',
+        title: 'PannamOS Modes',
         items: browserOSItems,
       })
     }

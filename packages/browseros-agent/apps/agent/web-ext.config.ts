@@ -32,10 +32,10 @@ export default defineWebExtConfig({
   binaries: {
     chrome:
       env.BROWSEROS_BINARY ||
-      '/Applications/BrowserOS.app/Contents/MacOS/BrowserOS',
+      '/Applications/PannamOS.app/Contents/MacOS/PannamOS',
   },
   chromiumArgs,
-  chromiumProfile: env.BROWSEROS_USER_DATA_DIR || '/tmp/browseros-dev',
+  chromiumProfile: env.BROWSEROS_USER_DATA_DIR || '/tmp/pannamos-dev',
   keepProfileChanges: true,
   startUrls: ['chrome://newtab'],
 })

@@ -1,5 +1,11 @@
 import { readdir, readFile, stat } from 'node:fs/promises'
-import { basename, dirname, extname, join } from 'node:path'
+import {
+  basename,
+  dirname,
+  extname,
+  join,
+  relative as pathRelative,
+} from 'node:path'
 import {
   GetObjectCommand,
   PutObjectCommand,
@@ -315,7 +321,7 @@ export class R2Publisher {
       const files = await collectFiles(taskPath)
       let screenshotCount = 0
       for (const file of files) {
-        const relative = file.slice(taskPath.length + 1)
+        const relative = pathRelative(taskPath, file).replaceAll('\\', '/')
         if (relative.startsWith('screenshots/') && extname(file) === '.png') {
           screenshotCount++
         }

@@ -1,7 +1,13 @@
 import type { ChatStatus, ToolUIPart, UIMessage } from 'ai'
 import { useEffect, useRef } from 'react'
 import type { GlowMessage } from '@/entrypoints/glow.content/GlowMessage'
+import type { GoalLoopProgress } from '@/lib/goals/goalLoopClient'
 import { firstRunConfettiShownStorage } from '@/lib/onboarding/onboardingStorage'
+import {
+  getGoalLoopCurrentSourceUrl,
+  normalizeTabUrlForGoalLoop,
+  shouldShowGoalLoopTabMarker,
+} from './goalLoopTabMarker'
 
 function extractTabId(toolPart: ToolUIPart | null): number | undefined {
   if (!toolPart) return undefined
@@ -23,14 +29,41 @@ function sendGlow(tabId: number, message: GlowMessage): void {
   chrome.tabs.sendMessage(tabId, message).catch(() => {})
 }
 
+async function resolveGoalLoopTargetTabId(
+  progress: GoalLoopProgress,
+  fallbackTabId: number | null,
+): Promise<number | undefined> {
+  const sourceUrl = getGoalLoopCurrentSourceUrl(progress)
+  const normalizedSourceUrl = normalizeTabUrlForGoalLoop(sourceUrl)
+
+  if (normalizedSourceUrl) {
+    const tabs = await chrome.tabs.query({ currentWindow: true })
+    const matchedTab = tabs.find((tab) => {
+      if (!tab.id) return false
+      return normalizeTabUrlForGoalLoop(tab.url) === normalizedSourceUrl
+    })
+    if (matchedTab?.id) return matchedTab.id
+  }
+
+  if (fallbackTabId) return fallbackTabId
+
+  const activeTabs = await chrome.tabs.query({
+    active: true,
+    currentWindow: true,
+  })
+  return activeTabs[0]?.id
+}
+
 export const useNotifyActiveTab = ({
   messages,
   status,
   conversationId,
+  goalLoopProgress,
 }: {
   messages: UIMessage[]
   status: ChatStatus
   conversationId: string
+  goalLoopProgress?: GoalLoopProgress | null
 }) => {
   // Track the single tab currently glowing
   const activeTabIdRef = useRef<number | null>(null)
@@ -45,11 +78,13 @@ export const useNotifyActiveTab = ({
 
   const hasToolCalls = !!latestTool
   const toolTabId = extractTabId(latestTool as ToolUIPart | null)
+  const isGoalLoopActive = shouldShowGoalLoopTabMarker(goalLoopProgress)
 
   useEffect(() => {
     const isStreaming = status === 'streaming'
+    const hasActiveWork = isStreaming || isGoalLoopActive
 
-    if (!isStreaming) {
+    if (!hasActiveWork) {
       // Deactivate ALL tabs that were glowed during this stream
       const allGlowed = allGlowedTabsRef.current
       if (allGlowed.size > 0) {
@@ -80,14 +115,25 @@ export const useNotifyActiveTab = ({
       return
     }
 
-    if (!hasToolCalls) return
+    if (isStreaming && !hasToolCalls && !isGoalLoopActive) return
 
     let cancelled = false
 
     const activate = async () => {
-      let targetTabId = toolTabId ?? undefined
+      let targetTabId: number | undefined
 
-      if (!targetTabId) {
+      if (isStreaming && hasToolCalls) {
+        targetTabId = toolTabId ?? undefined
+      }
+
+      if (!targetTabId && isGoalLoopActive && goalLoopProgress) {
+        targetTabId = await resolveGoalLoopTargetTabId(
+          goalLoopProgress,
+          activeTabIdRef.current,
+        )
+      }
+
+      if (!targetTabId && isStreaming) {
         // Fallback: use the currently active tab, or query browser
         if (activeTabIdRef.current) {
           targetTabId = activeTabIdRef.current
@@ -116,6 +162,7 @@ export const useNotifyActiveTab = ({
       sendGlow(targetTabId, {
         conversationId,
         isActive: true,
+        showTabMarker: true,
       })
 
       activeTabIdRef.current = targetTabId
@@ -127,7 +174,14 @@ export const useNotifyActiveTab = ({
     return () => {
       cancelled = true
     }
-  }, [conversationId, status, hasToolCalls, toolTabId])
+  }, [
+    conversationId,
+    status,
+    hasToolCalls,
+    toolTabId,
+    isGoalLoopActive,
+    goalLoopProgress,
+  ])
 
   return
 }

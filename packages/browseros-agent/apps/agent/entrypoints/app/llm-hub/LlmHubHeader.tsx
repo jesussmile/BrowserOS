@@ -1,6 +1,10 @@
 import { MessageSquare } from 'lucide-react'
 import type { FC } from 'react'
 
+export const LLM_HUB_HEADER_TITLE = 'Chat Provider'
+export const LLM_HUB_HEADER_DESCRIPTION =
+  'Configure browser chat providers and quick links.'
+
 export const LlmHubHeader: FC = () => {
   return (
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
@@ -9,9 +13,9 @@ export const LlmHubHeader: FC = () => {
           <MessageSquare className="h-6 w-6 text-[var(--accent-orange)]" />
         </div>
         <div>
-          <h2 className="mb-1 font-semibold text-xl">LLM Chat & Hub</h2>
+          <h2 className="mb-1 font-semibold text-xl">{LLM_HUB_HEADER_TITLE}</h2>
           <p className="text-muted-foreground text-sm">
-            Curate and configure your favourite LLM chat providers
+            {LLM_HUB_HEADER_DESCRIPTION}
           </p>
         </div>
       </div>

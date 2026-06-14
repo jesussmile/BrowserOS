@@ -71,6 +71,7 @@ export const AgentRowCard: FC<AgentRowCardProps> = ({
             adapter={data.adapter}
             modelLabel={data.modelLabel}
             reasoningEffort={data.reasoningEffort}
+            roleLabel={data.roleLabel}
             adapterHealth={data.adapterHealth}
           />
 

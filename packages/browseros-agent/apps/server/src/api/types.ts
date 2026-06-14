@@ -14,6 +14,7 @@ import {
 } from '@browseros/shared/schemas/browser-context'
 import { LLMConfigSchema } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
+import type { AgentMode } from '../agent/types'
 import type { Browser } from '../browser/browser'
 import type { ToolRegistry } from '../tools/tool-registry'
 
@@ -34,16 +35,60 @@ export const AgentLLMConfigSchema = LLMConfigSchema.extend({
 
 export type AgentLLMConfig = z.infer<typeof AgentLLMConfigSchema>
 
+const ChatRequestModeSchema = z
+  .enum(['chat', 'research', 'workflow', 'goal', 'agent'])
+  .optional()
+  .default('goal')
+  .transform((mode): AgentMode => mode)
+
+const ChatAttachmentSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('image'),
+    mediaType: z.string().min(1),
+    name: z.string().optional(),
+    dataUrl: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal('file'),
+    mediaType: z.string().min(1),
+    name: z.string().min(1),
+    text: z.string(),
+  }),
+])
+
+const ChatApprovalPolicySchema = z
+  .object({
+    mode: z.enum(['supervised', 'full_browser']),
+    scope: z.literal('goal_run'),
+  })
+  .optional()
+
+const ChatAgentStrategySchema = z
+  .object({
+    mode: z.enum(['auto', 'single', 'parallel']),
+    maxWorkers: z.number().int().positive().max(16).optional(),
+  })
+  .optional()
+
 export const ChatRequestSchema = AgentLLMConfigSchema.extend({
   conversationId: z.string().uuid(),
   message: z.string().optional().default(''),
+  approvalResponses: z
+    .array(
+      z.object({
+        id: z.string(),
+        approved: z.boolean(),
+        reason: z.string().optional(),
+      }),
+    )
+    .optional(),
   contextWindowSize: z.number().optional(),
   browserContext: BrowserContextSchema.optional(),
   userSystemPrompt: z.string().optional(),
   isScheduledTask: z.boolean().optional().default(false),
   userWorkingDir: z.string().min(1).optional(),
   supportsImages: z.boolean().optional().default(true),
-  mode: z.enum(['chat', 'agent']).optional().default('agent'),
+  mode: ChatRequestModeSchema,
   origin: z.enum(['sidepanel', 'newtab']).optional().default('sidepanel'),
   declinedApps: z.array(z.string()).optional(),
   selectedText: z.string().optional(),
@@ -53,6 +98,9 @@ export const ChatRequestSchema = AgentLLMConfigSchema.extend({
       title: z.string(),
     })
     .optional(),
+  approvalPolicy: ChatApprovalPolicySchema,
+  agentStrategy: ChatAgentStrategySchema,
+  attachments: z.array(ChatAttachmentSchema).max(10).optional(),
   previousConversation: z
     .union([
       z.array(
@@ -95,7 +143,9 @@ export interface HttpServerConfig {
   registry: ToolRegistry
 
   browserosId?: string
+  storageRoot: string
   executionDir: string
+  outputsDir: string
   resourcesDir: string
   codegenServiceUrl?: string
   aiSdkDevtoolsEnabled?: boolean

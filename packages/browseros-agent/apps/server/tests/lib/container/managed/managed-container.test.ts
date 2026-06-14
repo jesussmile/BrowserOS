@@ -22,6 +22,8 @@ import type {
   ContainerSpec,
 } from '../../../../src/lib/container/types'
 
+const itWithPosixEnv = process.platform === 'win32' ? it.skip : it
+
 interface FakeCli {
   inspectContainer: (name: string) => Promise<ContainerInfo | null>
   removeContainer: (name: string, opts?: { force?: boolean }) => Promise<void>
@@ -116,8 +118,8 @@ function makeFakeDeps(opts: { lockDir: string }): ManagedContainerDeps & {
     loader: fakeLoader as unknown as ManagedContainerDeps['loader'],
     vm: fakeVm as unknown as ManagedContainerDeps['vm'],
     limactlPath: '/opt/homebrew/bin/limactl',
-    limaHome: '/Users/dev/.browseros/lima',
-    vmName: 'browseros-vm',
+    limaHome: '/Users/dev/.pannamos/lima',
+    vmName: 'pannamos-vm',
     lockDir: opts.lockDir,
     fakeCli,
     fakeLoader,
@@ -239,33 +241,36 @@ describe('ManagedContainer', () => {
       }
     })
 
-    it('waits through starting and resolves when running', async () => {
-      const lockDir = mkTempDir()
-      const deps = makeFakeDeps({ lockDir })
-      const c = new TestContainer(deps)
-      // Skip directly to a starting state without running the start
-      // pipeline, then flip to running asynchronously.
-      // biome-ignore lint/complexity/useLiteralKeys: test reaches into protected
-      c['setState']('starting')
-      // Ensure execProcess waits, not resolves immediately.
-      const execPromise = c.execProcess(
-        {
-          argv: ['/bin/echo', 'hi'],
-          env: { FOO: 'bar' },
-        },
-        { execGateTimeoutMs: 1_000 },
-      )
-      // Flip to running on next tick — execProcess should resolve.
-      setTimeout(() => {
+    itWithPosixEnv(
+      'waits through starting and resolves when running',
+      async () => {
+        const lockDir = mkTempDir()
+        const deps = makeFakeDeps({ lockDir })
+        const c = new TestContainer(deps)
+        // Skip directly to a starting state without running the start
+        // pipeline, then flip to running asynchronously.
         // biome-ignore lint/complexity/useLiteralKeys: test reaches into protected
-        c['setState']('running')
-      }, 10)
-      const proc = await execPromise
-      proc.kill()
-      // Bun spawned a real process — it will exit quickly. Drain so
-      // the test doesn't leak resources.
-      await proc.exited.catch(() => undefined)
-    })
+        c['setState']('starting')
+        // Ensure execProcess waits, not resolves immediately.
+        const execPromise = c.execProcess(
+          {
+            argv: ['/bin/echo', 'hi'],
+            env: { FOO: 'bar' },
+          },
+          { execGateTimeoutMs: 1_000 },
+        )
+        // Flip to running on next tick — execProcess should resolve.
+        setTimeout(() => {
+          // biome-ignore lint/complexity/useLiteralKeys: test reaches into protected
+          c['setState']('running')
+        }, 10)
+        const proc = await execPromise
+        proc.kill()
+        // Bun spawned a real process — it will exit quickly. Drain so
+        // the test doesn't leak resources.
+        await proc.exited.catch(() => undefined)
+      },
+    )
 
     it('rejects with reason=timeout when starting never resolves', async () => {
       const lockDir = mkTempDir()
@@ -305,12 +310,12 @@ describe('ManagedContainer', () => {
       expect(out).toBe(
         [
           'env',
-          'LIMA_HOME=/Users/dev/.browseros/lima',
+          'LIMA_HOME=/Users/dev/.pannamos/lima',
           '/opt/homebrew/bin/limactl',
           'shell',
           '--workdir',
           '/',
-          'browseros-vm',
+          'pannamos-vm',
           '--',
           'nerdctl',
           'exec',

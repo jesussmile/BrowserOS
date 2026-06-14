@@ -4,6 +4,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type {
+  BrowserOSAgentRoleId,
+  BrowserOSCustomRoleInput,
+} from '@browseros/shared/types/role-aware-agents'
 import type { AgentAdapter, AgentDefinition } from './agent-types'
 
 export interface CreateAgentInput {
@@ -16,6 +20,8 @@ export interface CreateAgentInput {
   baseUrl?: string
   apiKey?: string
   supportsImages?: boolean
+  roleId?: BrowserOSAgentRoleId
+  customRole?: BrowserOSCustomRoleInput
 }
 
 export interface AgentStore {

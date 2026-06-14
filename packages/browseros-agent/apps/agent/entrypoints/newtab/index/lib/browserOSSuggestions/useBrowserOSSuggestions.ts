@@ -1,8 +1,17 @@
+import type { ChatMode } from '@/entrypoints/sidepanel/index/chatTypes'
+
+const BROWSEROS_SUGGESTION_MODES: ChatMode[] = [
+  'goal',
+  'chat',
+  'research',
+  'workflow',
+]
+
 /**
  * @public
  */
 export interface BrowserOSSuggestion {
-  mode: 'chat' | 'agent'
+  mode: ChatMode
   message: string
 }
 
@@ -14,10 +23,11 @@ export const useBrowserOSSuggestions = ({
 }: {
   query: string
 }): BrowserOSSuggestion[] => {
-  return [
-    {
-      mode: 'agent',
-      message: query,
-    },
-  ]
+  const message = query.trim()
+  if (!message) return []
+
+  return BROWSEROS_SUGGESTION_MODES.map((mode) => ({
+    mode,
+    message,
+  }))
 }

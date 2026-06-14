@@ -17,7 +17,9 @@ export async function runPythonJsonEvaluator<T>(
   options: PythonEvaluatorOptions,
 ): Promise<PythonEvaluatorResult<T>> {
   const pythonPath =
-    options.pythonPath || process.env.BROWSEROS_EVAL_PYTHON || 'python3'
+    options.pythonPath ||
+    process.env.BROWSEROS_EVAL_PYTHON ||
+    defaultPythonPath()
   const proc = Bun.spawn([pythonPath, options.scriptPath], {
     stdin: 'pipe',
     stdout: 'pipe',
@@ -65,4 +67,8 @@ export async function runPythonJsonEvaluator<T>(
   } finally {
     clearTimeout(timeoutHandle)
   }
+}
+
+function defaultPythonPath(): string {
+  return process.platform === 'win32' ? 'python' : 'python3'
 }

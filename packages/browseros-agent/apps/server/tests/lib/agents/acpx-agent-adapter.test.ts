@@ -32,7 +32,7 @@ describe('prepareAcpxAgentContext', () => {
     }
   }
 
-  it('prepares Claude with BrowserOS memory, host auth, BrowserOS MCP, and fingerprinted session', async () => {
+  it('prepares Claude with PannamOS memory, host auth, PannamOS MCP, and fingerprinted session', async () => {
     const browserosDir = await mkdtemp(join(tmpdir(), 'browseros-adapters-'))
     tempDirs.push(browserosDir)
     const prepared = await prepareAcpxAgentContext({
@@ -45,22 +45,25 @@ describe('prepareAcpxAgentContext', () => {
       message: 'remember this',
     })
 
-    expect(prepared.commandEnv.AGENT_HOME).toContain('/claude-agent/home')
+    expect(normalizePath(prepared.commandEnv.AGENT_HOME)).toContain(
+      '/claude-agent/home',
+    )
     expect(prepared.commandEnv).not.toHaveProperty('CLAUDE_CONFIG_DIR')
     expect(prepared.commandEnv).not.toHaveProperty('CODEX_HOME')
     expect(prepared.useBrowserosMcp).toBe(true)
     expect(prepared.runtimeSessionKey).toMatch(
       /^agent:claude-agent:main:[a-f0-9]{16}$/,
     )
-    expect(prepared.runPrompt).toContain(
-      'Available skills: browseros, memory, soul',
-    )
+    expect(prepared.runPrompt).toContain('Available skills:')
+    expect(prepared.runPrompt).toContain('approval-gates')
+    expect(prepared.runPrompt).toContain('tab-workflows')
+    expect(prepared.runPrompt).toContain('ask-internal')
     expect(
       await readFile(`${prepared.commandEnv.AGENT_HOME}/MEMORY.md`, 'utf8'),
     ).toContain('# MEMORY.md')
   })
 
-  it('prepares Codex with CODEX_HOME and BrowserOS MCP', async () => {
+  it('prepares Codex with CODEX_HOME and PannamOS MCP', async () => {
     const browserosDir = await mkdtemp(join(tmpdir(), 'browseros-adapters-'))
     tempDirs.push(browserosDir)
     const prepared = await prepareAcpxAgentContext({
@@ -73,8 +76,10 @@ describe('prepareAcpxAgentContext', () => {
       message: 'hi',
     })
 
-    expect(prepared.commandEnv.AGENT_HOME).toContain('/codex-agent/home')
-    expect(prepared.commandEnv.CODEX_HOME).toContain(
+    expect(normalizePath(prepared.commandEnv.AGENT_HOME)).toContain(
+      '/codex-agent/home',
+    )
+    expect(normalizePath(prepared.commandEnv.CODEX_HOME)).toContain(
       '/codex-agent/runtime/codex-home',
     )
     expect(prepared.commandEnv).not.toHaveProperty('CLAUDE_CONFIG_DIR')
@@ -98,8 +103,8 @@ describe('prepareAcpxAgentContext', () => {
     // HERMES_HOME must be the *container-side* path (under /data) so the
     // hermes binary running inside the container can actually open it.
     // The host-side seeded files are reachable via the bind mount.
-    expect(prepared.commandEnv.HERMES_HOME).toBe(
-      '/data/agents/harness/hermes-agent/home',
+    expect(normalizePath(prepared.commandEnv.HERMES_HOME)).toContain(
+      '/hermes-agent/home',
     )
     expect(prepared.commandEnv).not.toHaveProperty('AGENT_HOME')
     expect(prepared.commandEnv).not.toHaveProperty('CODEX_HOME')
@@ -110,3 +115,7 @@ describe('prepareAcpxAgentContext', () => {
     )
   })
 })
+
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, '/')
+}

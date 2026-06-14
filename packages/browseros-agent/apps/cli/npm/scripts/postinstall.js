@@ -6,7 +6,10 @@ const { execSync } = require('node:child_process')
 const { createHash } = require('node:crypto')
 
 const VERSION = require('../package.json').version
-const GITHUB_RELEASE_BASE = `https://github.com/browseros-ai/BrowserOS/releases/download/browseros-cli-v${VERSION}`
+const DOWNLOAD_BASE = (process.env.BROWSEROS_CLI_DOWNLOAD_BASE || '').replace(
+  /\/+$/,
+  '',
+)
 const BINARY_DIR = path.join(__dirname, '..', '.binary')
 const EXT = process.platform === 'win32' ? '.exe' : ''
 const BINARY_PATH = path.join(BINARY_DIR, `browseros-cli${EXT}`)
@@ -31,8 +34,12 @@ if (!platform || !arch) {
 const isWindows = platform === 'windows'
 const archiveExt = isWindows ? 'zip' : 'tar.gz'
 const archiveName = `browseros-cli_${VERSION}_${platform}_${arch}.${archiveExt}`
-const archiveURL = `${GITHUB_RELEASE_BASE}/${archiveName}`
-const checksumURL = `${GITHUB_RELEASE_BASE}/checksums.txt`
+const archiveURL = DOWNLOAD_BASE
+  ? `${DOWNLOAD_BASE}/v${VERSION}/${archiveName}`
+  : ''
+const checksumURL = DOWNLOAD_BASE
+  ? `${DOWNLOAD_BASE}/v${VERSION}/checksums.txt`
+  : ''
 
 const MAX_REDIRECTS = 5
 
@@ -67,6 +74,13 @@ function download(url, redirects = 0) {
 }
 
 async function main() {
+  if (!DOWNLOAD_BASE) {
+    console.warn(
+      'browseros-cli: skipping binary download; set BROWSEROS_CLI_DOWNLOAD_BASE to an internal release base URL for private packaged installs.',
+    )
+    return
+  }
+
   console.log(
     `browseros-cli: downloading v${VERSION} for ${platform}/${arch}...`,
   )
@@ -136,7 +150,7 @@ async function main() {
 main().catch((err) => {
   console.error(`browseros-cli: installation failed: ${err.message}`)
   console.error(
-    'You can install manually: curl -fsSL https://cdn.browseros.com/cli/install.sh | bash',
+    'Install manually from your internal private BrowserOS CLI release channel.',
   )
   process.exit(1)
 })

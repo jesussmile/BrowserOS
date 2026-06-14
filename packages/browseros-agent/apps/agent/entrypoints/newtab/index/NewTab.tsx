@@ -30,13 +30,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { McpServerIcon } from '@/entrypoints/app/connect-mcp/McpServerIcon'
-import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetUserMCPIntegrations'
+import type { ChatMode } from '@/entrypoints/sidepanel/index/chatTypes'
 import { useChatSessionContext } from '@/entrypoints/sidepanel/layout/ChatSessionContext'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
 import {
   createAITabAction,
-  createBrowserOSAction,
+  createPannamOSAction,
 } from '@/lib/chat-actions/types'
 import {
   NEWTAB_AI_TRIGGERED_EVENT,
@@ -53,9 +53,9 @@ import {
   NEWTAB_VOICE_TRANSCRIPTION_COMPLETED_EVENT,
   NEWTAB_WORKSPACE_OPENED_EVENT,
 } from '@/lib/constants/analyticsEvents'
-import { BrowserOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
+import { PannamOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import type { ProviderType } from '@/lib/llm-providers/types'
-import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import { isLiveMcpServer, useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { useSyncRemoteIntegrations } from '@/lib/mcp/useSyncRemoteIntegrations'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { track } from '@/lib/metrics/track'
@@ -73,7 +73,6 @@ import { NewTabTip } from './NewTabTip'
 import { ScheduleResults } from './ScheduleResults'
 import { SearchSuggestions } from './SearchSuggestions'
 import { ShortcutsDialog } from './ShortcutsDialog'
-import { SignInHint } from './SignInHint'
 import { TopSites } from './TopSites'
 import { useActiveHint } from './useActiveHint'
 
@@ -106,7 +105,6 @@ export const NewTab = () => {
   const { providers, selectedProvider, handleSelectProvider } =
     useChatSessionContext()
   const { servers: mcpServers } = useMcpServers()
-  const { data: userMCPIntegrations } = useGetUserMCPIntegrations()
   useSyncRemoteIntegrations()
 
   const voice = useVoiceInput()
@@ -141,9 +139,7 @@ export const NewTab = () => {
 
   const connectedManagedServers = mcpServers.filter((s) => {
     if (s.type !== 'managed' || !s.managedServerName) return false
-    return userMCPIntegrations?.integrations?.find(
-      (i) => i.name === s.managedServerName,
-    )?.is_authenticated
+    return isLiveMcpServer(s)
   })
 
   const toggleTab = (tab: chrome.tabs.Tab) => {
@@ -168,7 +164,7 @@ export const NewTab = () => {
     query: inputValue,
     selectedTabs,
   })
-  const searchPlaceholder = `Ask BrowserOS or search ${providerConfig.name}...`
+  const searchPlaceholder = `Ask PannamOS or search ${providerConfig.name}...`
   const supportsInlineChat =
     alphaEnabled && supports(Feature.NEWTAB_CHAT_SUPPORT)
 
@@ -317,7 +313,7 @@ export const NewTab = () => {
 
   const startInlineChat = (
     message: string,
-    chatMode: 'chat' | 'agent',
+    chatMode: ChatMode,
     aiTab?: { name: string; description: string },
   ) => {
     track(NEWTAB_CHAT_STARTED_EVENT, {
@@ -356,12 +352,12 @@ export const NewTab = () => {
         break
       case 'ai-tab': {
         track(NEWTAB_AI_TRIGGERED_EVENT, {
-          mode: 'agent',
+          mode: 'goal',
           tabs_count: selectedTabs.length,
         })
         const searchQuery = `${item.name}${item.description ? ` - ${item.description}` : ''}}`
         if (supportsInlineChat) {
-          startInlineChat(searchQuery, 'agent', {
+          startInlineChat(searchQuery, 'goal', {
             name: item.name,
             description: item.description,
           })
@@ -373,7 +369,7 @@ export const NewTab = () => {
           })
           openSidePanelWithSearch('open', {
             query: searchQuery,
-            mode: 'agent',
+            mode: 'goal',
             action,
           })
           reset()
@@ -389,7 +385,7 @@ export const NewTab = () => {
         if (supportsInlineChat) {
           startInlineChat(item.message, item.mode)
         } else {
-          const action = createBrowserOSAction({
+          const action = createPannamOSAction({
             mode: item.mode,
             message: item.message,
             tabs: selectedTabs,
@@ -644,7 +640,7 @@ export const NewTab = () => {
                         )}
                       >
                         {selectedProvider.type === 'browseros' ? (
-                          <BrowserOSIcon size={16} />
+                          <PannamOSIcon size={16} />
                         ) : (
                           <ProviderIcon
                             type={selectedProvider.type as ProviderType}
@@ -790,7 +786,6 @@ export const NewTab = () => {
           onOpenChange={setShortcutsDialogOpen}
         />
       )}
-      {activeHint === 'signin' && <SignInHint />}
       {activeHint === 'import' && <ImportDataHint />}
     </div>
   )

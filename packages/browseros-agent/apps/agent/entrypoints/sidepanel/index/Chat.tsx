@@ -1,6 +1,7 @@
 import { Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { createBrowserOSAction } from '@/lib/chat-actions/types'
+import type { StagedAttachment } from '@/lib/attachments'
+import { createPannamOSAction } from '@/lib/chat-actions/types'
 import {
   SIDEPANEL_AI_TRIGGERED_EVENT,
   SIDEPANEL_MODE_CHANGED_EVENT,
@@ -14,6 +15,7 @@ import {
   SIDEPANEL_VOICE_TRANSCRIPTION_COMPLETED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { useJtbdPopup } from '@/lib/jtbd-popup/useJtbdPopup'
+import type { ChatAgentStrategy } from '@/lib/messaging/server/buildChatRequestBody'
 import { track } from '@/lib/metrics/track'
 import { useVoiceInput } from '@/lib/voice/useVoiceInput'
 import { useChatSessionContext } from '../layout/ChatSessionContext'
@@ -21,7 +23,9 @@ import { ChatEmptyState } from './ChatEmptyState'
 import { ChatError } from './ChatError'
 import { ChatFooter } from './ChatFooter'
 import { ChatMessages } from './ChatMessages'
+import { isCompactCommand } from './chatCommands'
 import type { ChatMode } from './chatTypes'
+import { buildGoalAgentStrategy } from './goalAgentStrategy'
 
 /**
  * @public
@@ -42,7 +46,14 @@ export const Chat = () => {
     onClickLike,
     disliked,
     onClickDislike,
+    addToolApprovalResponse,
     isRestoringConversation,
+    goalLoopProgress,
+    activeGoalLoopId,
+    pauseGoalLoop,
+    resumeGoalLoop,
+    cancelGoalLoop,
+    compactConversation,
   } = useChatSessionContext()
 
   const {
@@ -57,6 +68,9 @@ export const Chat = () => {
   const voice = useVoiceInput()
 
   const [input, setInput] = useState('')
+  const [attachments, setAttachments] = useState<StagedAttachment[]>([])
+  const [agentStrategyMode, setAgentStrategyMode] =
+    useState<ChatAgentStrategy['mode']>('auto')
   const [attachedTabs, setAttachedTabs] = useState<chrome.tabs.Tab[]>([])
   const [mounted, setMounted] = useState(false)
 
@@ -140,22 +154,45 @@ export const Chat = () => {
   }
 
   const executeMessage = (customMessageText?: string) => {
-    const messageText = customMessageText ? customMessageText : input.trim()
-    if (!messageText) return
+    let messageText = customMessageText ? customMessageText : input.trim()
+    if (!messageText && attachments.length === 0) return
+
+    if (isCompactCommand(messageText)) {
+      void compactConversation()
+      setInput('')
+      return
+    }
 
     recordMessageSent()
+    if (!messageText && attachments.length > 0) {
+      messageText = 'Please review the attached file(s).'
+    }
+    const attachmentPayloads = attachments.map(
+      (attachment) => attachment.payload,
+    )
+    const agentStrategy = buildGoalAgentStrategy(agentStrategyMode)
 
     if (attachedTabs.length) {
-      const action = createBrowserOSAction({
+      const action = createPannamOSAction({
         mode,
         message: messageText,
         tabs: attachedTabs,
       })
-      sendMessage({ text: messageText, action })
+      sendMessage({
+        text: messageText,
+        action,
+        attachments: attachmentPayloads,
+        agentStrategy,
+      })
     } else {
-      sendMessage({ text: messageText })
+      sendMessage({
+        text: messageText,
+        attachments: attachmentPayloads,
+        agentStrategy,
+      })
     }
     setInput('')
+    setAttachments([])
     setAttachedTabs([])
   }
 
@@ -198,7 +235,7 @@ export const Chat = () => {
 
   return (
     <>
-      <main className="mt-4 flex h-full flex-1 flex-col space-y-4 overflow-y-auto">
+      <main className="mt-4 flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden">
         {isRestoringConversation ? (
           <div className="flex flex-1 items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -218,6 +255,7 @@ export const Chat = () => {
             onClickLike={onClickLike}
             disliked={disliked}
             onClickDislike={onClickDislike}
+            onToolApprovalResponse={addToolApprovalResponse}
             showJtbdPopup={popupVisible}
             showDontShowAgain={showDontShowAgain}
             onTakeSurvey={onTakeSurvey}
@@ -247,6 +285,16 @@ export const Chat = () => {
         onToggleTab={toggleTabSelection}
         onRemoveTab={removeTab}
         voice={voiceState}
+        attachments={attachments}
+        onAttachmentsChange={setAttachments}
+        onCompactConversation={compactConversation}
+        agentStrategyMode={agentStrategyMode}
+        onAgentStrategyModeChange={setAgentStrategyMode}
+        goalLoopProgress={goalLoopProgress}
+        activeGoalLoopId={activeGoalLoopId}
+        onPauseGoalLoop={pauseGoalLoop}
+        onResumeGoalLoop={resumeGoalLoop}
+        onCancelGoalLoop={cancelGoalLoop}
       />
     </>
   )

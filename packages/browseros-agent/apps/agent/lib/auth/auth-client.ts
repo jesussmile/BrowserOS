@@ -1,8 +1,18 @@
-import { magicLinkClient } from 'better-auth/client/plugins'
-import { createAuthClient } from 'better-auth/react'
-import { env } from '../env'
+const LOCAL_ONLY_AUTH_RESULT = {
+  data: null,
+  error: {
+    message: 'Cloud account login is disabled in this private PannamOS build.',
+  },
+} as const
 
-export const { signIn, signUp, signOut, useSession } = createAuthClient({
-  baseURL: env.VITE_PUBLIC_BROWSEROS_API,
-  plugins: [magicLinkClient()],
+const localOnlyAuthAction = async () => LOCAL_ONLY_AUTH_RESULT
+
+export const signIn = localOnlyAuthAction
+export const signUp = localOnlyAuthAction
+export const signOut = async () => ({ data: null, error: null })
+
+export const useSession = () => ({
+  data: null,
+  error: null,
+  isPending: false,
 })

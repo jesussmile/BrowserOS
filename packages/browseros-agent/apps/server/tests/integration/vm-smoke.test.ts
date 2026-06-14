@@ -16,7 +16,7 @@ const liveIt = process.env.LIVE_VM_SMOKE === '1' ? it : it.skip
 const limactlPath = process.env.LIMACTL_PATH ?? 'limactl'
 const templatePath = resolve(
   import.meta.dir,
-  '../../../../packages/build-tools/template/browseros-vm.yaml',
+  '../../../../packages/build-tools/template/pannamos-vm.yaml',
 )
 
 describe('BrowserOS VM live smoke', () => {

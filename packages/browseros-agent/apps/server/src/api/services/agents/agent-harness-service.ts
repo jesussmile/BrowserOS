@@ -4,12 +4,15 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { CustomMcpServer } from '@browseros/shared/schemas/browser-context'
+import type { AgentMode } from '../../../agent/types'
 import { AcpxRuntime } from '../../../lib/agents/acpx-runtime'
 import {
   type ActiveTurnInfo,
   type TurnFrame,
   TurnRegistry,
 } from '../../../lib/agents/active-turn-registry'
+import { bootstrapAgentRole } from '../../../lib/agents/agent-role-bootstrap'
 import type {
   AgentStore,
   CreateAgentInput,
@@ -428,6 +431,12 @@ export class AgentHarnessService {
       try {
         await this.writeHermesPerAgentProvider(agent.id, input)
         await this.ensureVmRuntimeReady?.(agent.adapter)
+        await bootstrapAgentRole({
+          browserosDir: this.browserosDir,
+          agent,
+          roleId: input.roleId,
+          customRole: input.customRole,
+        })
       } catch (err) {
         await this.agentStore.delete(agent.id).catch(() => {})
         await this.deleteHermesPerAgentProvider(agent.id).catch(
@@ -444,6 +453,18 @@ export class AgentHarnessService {
         throw err
       }
       return agent
+    }
+
+    try {
+      await bootstrapAgentRole({
+        browserosDir: this.browserosDir,
+        agent,
+        roleId: input.roleId,
+        customRole: input.customRole,
+      })
+    } catch (err) {
+      await this.agentStore.delete(agent.id).catch(() => {})
+      throw err
     }
 
     return agent
@@ -540,7 +561,9 @@ export class AgentHarnessService {
   async startTurn(input: {
     agentId: string
     message: string
+    mode?: AgentMode
     attachments?: ReadonlyArray<{ mediaType: string; data: string }>
+    customMcpServers?: ReadonlyArray<CustomMcpServer>
     cwd?: string
   }): Promise<{ turnId: string; frames: ReadableStream<TurnFrame> }> {
     const agent = await this.requireAgent(input.agentId)
@@ -625,7 +648,9 @@ export class AgentHarnessService {
   async send(input: {
     agentId: string
     message: string
+    mode?: AgentMode
     attachments?: ReadonlyArray<{ mediaType: string; data: string }>
+    customMcpServers?: ReadonlyArray<CustomMcpServer>
     cwd?: string
     signal?: AbortSignal
   }): Promise<ReadableStream<AgentStreamEvent>> {
@@ -649,7 +674,9 @@ export class AgentHarnessService {
     agent: AgentDefinition,
     input: {
       message: string
+      mode?: AgentMode
       attachments?: ReadonlyArray<{ mediaType: string; data: string }>
+      customMcpServers?: ReadonlyArray<CustomMcpServer>
       cwd?: string
     },
   ): Promise<void> {
@@ -663,7 +690,9 @@ export class AgentHarnessService {
         sessionId: 'main',
         sessionKey: agent.sessionKey,
         message: input.message,
+        mode: input.mode,
         attachments: input.attachments,
+        customMcpServers: input.customMcpServers,
         permissionMode: agent.permissionMode,
         cwd: input.cwd,
         signal: turn.abortController.signal,
@@ -783,7 +812,7 @@ function assertHermesProviderInputValid(input: CreateAgentInput): void {
   const providerType = input.providerType?.trim()
   if (!providerType) {
     throw new HermesProviderConfigInvalidError(
-      'Hermes agent requires providerType (pick a provider configured in BrowserOS AI Settings)',
+      'Hermes agent requires providerType (pick a provider configured in PannamOS AI Settings)',
     )
   }
   const mapping = getHermesProviderMapping(providerType)

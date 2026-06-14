@@ -33,6 +33,12 @@ export function getDb(): BrowserOsDatabase {
 
 export function closeDb(): void {
   if (handle) {
+    try {
+      handle.sqlite.exec('PRAGMA wal_checkpoint(TRUNCATE)')
+    } catch {
+      // Best effort: callers still need the handle closed even if the
+      // checkpoint cannot run, for example after a failed migration.
+    }
     handle.sqlite.close()
     handle = null
   }

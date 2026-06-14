@@ -109,7 +109,7 @@ export class HermesContainerRuntime extends ContainerAgentRuntime {
       env: { PYTHONUNBUFFERED: '1' },
       // host.containers.internal → VM gateway so hermes inside the
       // container can reach the BrowserOS HTTP server running on the
-      // host (BrowserOS MCP /mcp).
+      // host (PannamOS MCP /mcp).
       addHosts: [`host.containers.internal:${gateway}`],
       mounts: [
         { source: guestHarnessDir, target: HERMES_CONTAINER_HARNESS_DIR },

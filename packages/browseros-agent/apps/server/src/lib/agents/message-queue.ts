@@ -40,7 +40,7 @@ export class MessageQueueFullError extends Error {
 
 /**
  * Per-agent durable FIFO of messages waiting to run. Persists at
- * `~/.browseros/agent-harness/message-queues.json` so queues survive
+ * `~/.pannamos/agent-harness/message-queues.json` so queues survive
  * server restarts. Atomic temp+rename writes serialised through a
  * write lock so concurrent enqueues from different request contexts
  * don't race.

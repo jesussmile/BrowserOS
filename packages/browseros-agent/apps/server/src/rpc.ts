@@ -1,4 +1,6 @@
-import type { createHttpServer } from './api/server'
+import type { Hono } from 'hono'
 
-// Export type for client inference (e.g., hono/client)
-export type AppType = Awaited<ReturnType<typeof createHttpServer>>['app']
+// Keep the exported RPC client type intentionally shallow. Inferring the full
+// Hono route tree across the server and extension packages can exceed
+// TypeScript's instantiation depth as the private local API grows.
+export type AppType = Hono

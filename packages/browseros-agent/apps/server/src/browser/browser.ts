@@ -67,6 +67,27 @@ export interface SetWindowVisibilityResult {
   previousWindowId: number
 }
 
+export interface BrowserApprovalTargetSummary {
+  tagName?: string
+  type?: string
+  role?: string
+  text?: string
+  ariaLabel?: string
+  title?: string
+  name?: string
+  id?: string
+  className?: string
+  href?: string
+  value?: string
+  isInForm?: boolean
+  isSubmitControl?: boolean
+  isEditable?: boolean
+  formAction?: string
+  formMethod?: string
+  pageUrl?: string
+  pageTitle?: string
+}
+
 interface TabInfo {
   tabId: number
   targetId: string
@@ -90,6 +111,104 @@ const EXCLUDED_URL_PREFIXES = [
   'chrome-search://',
   'devtools://',
 ]
+
+const APPROVAL_TARGET_SUMMARY_SCRIPT = `function(){
+  const summarize = (element) => {
+    if (!element || element.nodeType !== 1) return null;
+    const el = element;
+    const form = typeof el.closest === 'function' ? el.closest('form') : null;
+    const tagName = (el.tagName || '').toLowerCase();
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    const role = (el.getAttribute('role') || '').toLowerCase();
+    const visibleText = [
+      el.innerText,
+      el.textContent,
+      el.getAttribute('aria-label'),
+      el.getAttribute('title'),
+      el.getAttribute('name'),
+      el.getAttribute('value'),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .replace(/\\s+/g, ' ')
+      .trim()
+      .slice(0, 500);
+
+    const buttonLikeTypes = ['button', 'submit', 'image', 'reset'];
+    const isInputButton =
+      tagName === 'input' && buttonLikeTypes.includes(type);
+    const isSubmitControl =
+      (tagName === 'button' && type !== 'button' && type !== 'reset') ||
+      (tagName === 'input' && ['submit', 'image'].includes(type));
+
+    return {
+      tagName,
+      type,
+      role,
+      text: visibleText,
+      ariaLabel: el.getAttribute('aria-label') || undefined,
+      title: el.getAttribute('title') || undefined,
+      name: el.getAttribute('name') || undefined,
+      id: el.id || undefined,
+      className:
+        typeof el.className === 'string' ? el.className : undefined,
+      href: el.href || el.getAttribute('href') || undefined,
+      value:
+        typeof el.value === 'string' ? el.value.slice(0, 200) : undefined,
+      isInForm: Boolean(form),
+      isSubmitControl,
+      isEditable:
+        tagName === 'textarea' ||
+        tagName === 'select' ||
+        ['text', 'email', 'password', 'tel', 'url', 'search', 'number'].includes(type) ||
+        el.isContentEditable === true,
+      formAction:
+        form?.getAttribute('action') || form?.action || undefined,
+      formMethod:
+        form?.getAttribute('method') || form?.method || undefined,
+      pageUrl: window.location.href,
+      pageTitle: document.title,
+      isInputButton,
+    };
+  };
+  return summarize(this);
+}`
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value : undefined
+}
+
+function optionalBoolean(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined
+}
+
+function normalizeApprovalTargetSummary(
+  value: unknown,
+): BrowserApprovalTargetSummary | null {
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  return {
+    tagName: optionalString(record.tagName),
+    type: optionalString(record.type),
+    role: optionalString(record.role),
+    text: optionalString(record.text),
+    ariaLabel: optionalString(record.ariaLabel),
+    title: optionalString(record.title),
+    name: optionalString(record.name),
+    id: optionalString(record.id),
+    className: optionalString(record.className),
+    href: optionalString(record.href),
+    value: optionalString(record.value),
+    isInForm: optionalBoolean(record.isInForm),
+    isSubmitControl: optionalBoolean(record.isSubmitControl),
+    isEditable: optionalBoolean(record.isEditable),
+    formAction: optionalString(record.formAction),
+    formMethod: optionalString(record.formMethod),
+    pageUrl: optionalString(record.pageUrl),
+    pageTitle: optionalString(record.pageTitle),
+  }
+}
 
 export class Browser {
   private cdp: CdpBackend
@@ -731,6 +850,48 @@ export class Browser {
     }
   }
 
+  async getElementApprovalTarget(
+    page: number,
+    element: number,
+  ): Promise<BrowserApprovalTargetSummary | null> {
+    const session = await this.resolveSession(page)
+    await elements.scrollIntoView(session, element).catch(() => {})
+    const summary = await elements.callOnElement(
+      session,
+      element,
+      APPROVAL_TARGET_SUMMARY_SCRIPT,
+    )
+    return normalizeApprovalTargetSummary(summary)
+  }
+
+  async getPointApprovalTarget(
+    page: number,
+    x: number,
+    y: number,
+  ): Promise<BrowserApprovalTargetSummary | null> {
+    const session = await this.resolveSession(page)
+    const result = await session.Runtime.evaluate({
+      expression: `(() => {
+        const summarize = ${APPROVAL_TARGET_SUMMARY_SCRIPT};
+        const element = document.elementFromPoint(${JSON.stringify(x)}, ${JSON.stringify(y)});
+        return element ? summarize.call(element) : null;
+      })()`,
+      returnByValue: true,
+    })
+
+    if (result.exceptionDetails) {
+      logger.warn('Failed to summarize click target for approval', {
+        page,
+        error:
+          result.exceptionDetails.exception?.description ??
+          result.exceptionDetails.text,
+      })
+      return null
+    }
+
+    return normalizeApprovalTargetSummary(result.result?.value)
+  }
+
   async getDom(page: number, opts?: { selector?: string }): Promise<string> {
     const session = await this.resolveSession(page)
     const doc = await session.DOM.getDocument({ depth: 0 })
@@ -1251,7 +1412,7 @@ export class Browser {
 
   /**
    * Changes a window between hidden and visible states.
-   * BrowserOS may replace the underlying window, so callers must use the returned window ID.
+   * PannamOS may replace the underlying window, so callers must use the returned window ID.
    */
   async setWindowVisibility(
     windowId: number,

@@ -1,3 +1,4 @@
+import { CHATGPT_PRO_MODELS } from '@/lib/llm-providers/chatgptProModels'
 import {
   getModelsDevModels,
   type ModelsDevModel,
@@ -16,16 +17,7 @@ const CUSTOM_PROVIDER_MODELS: Partial<Record<ProviderType, ModelInfo[]>> = {
   browseros: [{ modelId: 'browseros-auto', contextLength: 200000 }],
   'openai-compatible': [],
   ollama: [],
-  'chatgpt-pro': [
-    { modelId: 'gpt-5.4', contextLength: 400000 },
-    { modelId: 'gpt-5.3-codex', contextLength: 400000 },
-    { modelId: 'gpt-5.2-codex', contextLength: 400000 },
-    { modelId: 'gpt-5.2', contextLength: 200000 },
-    { modelId: 'gpt-5.1-codex', contextLength: 400000 },
-    { modelId: 'gpt-5.1-codex-max', contextLength: 400000 },
-    { modelId: 'gpt-5.1-codex-mini', contextLength: 400000 },
-    { modelId: 'gpt-5.1', contextLength: 200000 },
-  ],
+  'chatgpt-pro': [...CHATGPT_PRO_MODELS],
   'qwen-code': [
     { modelId: 'coder-model', contextLength: 1000000 },
     { modelId: 'qwen3-coder-plus', contextLength: 1000000 },

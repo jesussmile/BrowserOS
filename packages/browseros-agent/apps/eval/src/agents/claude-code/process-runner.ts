@@ -91,14 +91,18 @@ async function readLines(
     const lines = buffer.split('\n')
     buffer = lines.pop() ?? ''
     for (const line of lines) {
-      await emitLine(line, onLine, streamErrors)
+      await emitLine(normalizeLine(line), onLine, streamErrors)
     }
   }
 
   buffer += decoder.decode()
   if (buffer.length > 0) {
-    await emitLine(buffer, onLine, streamErrors)
+    await emitLine(normalizeLine(buffer), onLine, streamErrors)
   }
+}
+
+function normalizeLine(line: string): string {
+  return line.endsWith('\r') ? line.slice(0, -1) : line
 }
 
 async function emitLine(

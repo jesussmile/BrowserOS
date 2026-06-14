@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { CustomMcpServer } from '@browseros/shared/schemas/browser-context'
+import type { AgentMode } from '../../agent/types'
 import type {
   AgentDefinition,
   AgentHistoryEntry,
@@ -72,7 +74,9 @@ export interface AgentPromptInput {
   sessionId: 'main'
   sessionKey: string
   message: string
+  mode?: AgentMode
   attachments?: ReadonlyArray<AgentInlineImage>
+  customMcpServers?: ReadonlyArray<CustomMcpServer>
   permissionMode: AgentPermissionMode
   cwd?: string
   timeoutMs?: number

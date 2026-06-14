@@ -1,6 +1,10 @@
 import type { Provider } from '../../../components/chat/chatComponentTypes'
 import type { LlmProviderConfig } from '../../../lib/llm-providers/types'
-import { buildChatRequestBody } from '../../../lib/messaging/server/buildChatRequestBody'
+import {
+  buildChatRequestBody,
+  type ChatRequestBrowserContext,
+} from '../../../lib/messaging/server/buildChatRequestBody'
+import type { ChatMode } from './chatTypes'
 import {
   type SidepanelChatTarget,
   toLlmProviderConfig,
@@ -19,6 +23,10 @@ interface BuildSidepanelPreparedSendMessagesRequestInput
   target: SidepanelChatTarget | undefined
   fallbackProvider: LlmProviderConfig
   message?: string
+  approvalResponses?: LlmChatRequestBodyInput['approvalResponses']
+  attachments?: LlmChatRequestBodyInput['attachments']
+  approvalPolicy?: LlmChatRequestBodyInput['approvalPolicy']
+  agentStrategy?: LlmChatRequestBodyInput['agentStrategy']
 }
 
 export function buildSidepanelPreparedSendMessagesRequest({
@@ -26,19 +34,33 @@ export function buildSidepanelPreparedSendMessagesRequest({
   target,
   fallbackProvider,
   message,
+  approvalResponses,
+  attachments,
+  approvalPolicy,
+  agentStrategy,
   ...common
 }: BuildSidepanelPreparedSendMessagesRequestInput) {
+  const browserContext = filterBrowserContextForMode(
+    common.mode,
+    common.browserContext,
+  )
+
   if (target?.kind === 'acp') {
     return {
       api: `${agentServerUrl}/agents/${encodeURIComponent(target.agentId)}/sidepanel/chat`,
       body: {
         conversationId: common.conversationId,
         message: message ?? '',
-        browserContext: common.browserContext,
+        mode: common.mode,
+        browserContext,
         userSystemPrompt: common.userSystemPrompt,
         userWorkingDir: common.userWorkingDir,
         selectedText: common.selectedText,
         selectedTextSource: common.selectedTextSource,
+        ...(approvalResponses?.length ? { approvalResponses } : {}),
+        ...(attachments?.length ? { attachments } : {}),
+        ...(approvalPolicy ? { approvalPolicy } : {}),
+        ...(agentStrategy ? { agentStrategy } : {}),
       },
     }
   }
@@ -48,10 +70,29 @@ export function buildSidepanelPreparedSendMessagesRequest({
     api: `${agentServerUrl}/chat`,
     body: buildChatRequestBody({
       ...common,
+      browserContext,
       provider,
       message,
+      approvalResponses,
+      attachments,
+      approvalPolicy,
+      agentStrategy,
     }),
   }
+}
+
+function filterBrowserContextForMode(
+  mode: ChatMode | undefined,
+  browserContext: ChatRequestBrowserContext | undefined,
+): ChatRequestBrowserContext | undefined {
+  if (mode !== 'chat' || !browserContext) return browserContext
+
+  const { enabledMcpServers, customMcpServers, ...readOnlyContext } =
+    browserContext
+  void enabledMcpServers
+  void customMcpServers
+
+  return Object.keys(readOnlyContext).length ? readOnlyContext : undefined
 }
 
 export function toProviderOption(target: SidepanelChatTarget): Provider {

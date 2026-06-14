@@ -14,7 +14,7 @@ type CorsOptions = Parameters<typeof cors>[0]
  */
 export const defaultCorsConfig: CorsOptions = {
   origin: (origin: string | undefined) => origin || '*',
-  allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'Accept'],
   credentials: true,
 }

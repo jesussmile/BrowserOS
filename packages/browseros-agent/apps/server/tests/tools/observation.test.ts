@@ -157,7 +157,11 @@ describe('observation tools', () => {
 
   it('get_page_content returns markdown text', async () => {
     await withBrowser(async ({ execute }) => {
-      const newResult = await execute(new_page, { url: 'https://example.com' })
+      const html =
+        '<main><h1>Example Domain</h1><p>Test page content.</p></main>'
+      const newResult = await execute(new_page, {
+        url: `data:text/html,${encodeURIComponent(html)}`,
+      })
       const pageId = pageIdOf(newResult)
 
       const contentResult = await execute(get_page_content, { page: pageId })
@@ -208,7 +212,7 @@ describe('observation tools', () => {
         assert.ok(existsSync(savedPath), 'Saved page content file should exist')
         assert.ok(
           dirname(savedPath).startsWith(
-            join(tmpdir(), 'browseros-tool-output-'),
+            join(tmpdir(), 'pannamos-tool-output-'),
           ),
           'Saved page content should be written to an OS temp directory',
         )

@@ -21,7 +21,7 @@ const clients: ClientConfig[] = [
     name: 'Claude Code',
     type: 'command',
     getSnippet: (url) =>
-      `claude mcp add --transport http browseros ${url} --scope user`,
+      `claude mcp add --transport http pannamos ${url} --scope user`,
   },
   {
     id: 'gemini-cli',
@@ -34,7 +34,7 @@ const clients: ClientConfig[] = [
     id: 'codex',
     name: 'Codex',
     type: 'command',
-    getSnippet: (url) => `codex mcp add browseros ${url}`,
+    getSnippet: (url) => `codex mcp add pannamos ${url}`,
   },
   {
     id: 'claude-desktop',
@@ -45,7 +45,7 @@ const clients: ClientConfig[] = [
       JSON.stringify(
         {
           mcpServers: {
-            browserOS: {
+            pannamos: {
               command: 'npx',
               args: ['mcp-remote', url],
             },

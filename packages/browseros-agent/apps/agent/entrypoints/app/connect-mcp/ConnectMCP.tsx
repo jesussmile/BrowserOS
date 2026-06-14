@@ -6,16 +6,18 @@ import {
   CUSTOM_MCP_ADDED_EVENT,
   MANAGED_MCP_ADDED_EVENT,
 } from '@/lib/constants/analyticsEvents'
-import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import { isLiveMcpServer, useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { useSyncRemoteIntegrations } from '@/lib/mcp/useSyncRemoteIntegrations'
 import { track } from '@/lib/metrics/track'
 import { sentry } from '@/lib/sentry/sentry'
 import { AddCustomMCPDialog } from './AddCustomMCPDialog'
+import { AddLocalConnectorDialog } from './AddLocalConnectorDialog'
 import { AddManagedMCPDialog } from './AddManagedMCPDialog'
 import { ApiKeyDialog } from './ApiKeyDialog'
 import { AvailableManagedServers } from './AvailableManagedServers'
 import { McpServerIcon } from './McpServerIcon'
 import { useAddManagedServer } from './useAddManagedServer'
+import { useCheckLocalConnector } from './useCheckLocalConnector'
 import { useGetMCPServersList } from './useGetMCPServersList'
 import { useGetUserMCPIntegrations } from './useGetUserMCPIntegrations'
 import { useRemoveManagedServer } from './useRemoveManagedServer'
@@ -35,10 +37,21 @@ const failedToRemoveMcp = (serverName: string, e: unknown) => {
  * @public
  */
 export const ConnectMCP: FC = () => {
-  const { servers: createdServers, addServer, removeServer } = useMcpServers()
+  const {
+    servers: createdServers,
+    addServer,
+    updateServer,
+    removeServer,
+  } = useMcpServers()
   const [addingManagedMcp, setAddingManagedMcp] = useState(false)
   const [addingCustomMcp, setAddingCustomMcp] = useState(false)
   const [deletingServerId, setDeletingServerId] = useState<string | null>(null)
+  const [connectorServer, setConnectorServer] = useState<{
+    id: string
+    name: string
+    url?: string
+    description?: string
+  } | null>(null)
   const [apiKeyServer, setApiKeyServer] = useState<{
     name: string
     description: string
@@ -46,6 +59,7 @@ export const ConnectMCP: FC = () => {
   } | null>(null)
 
   const { trigger: addManagedServerMutation } = useAddManagedServer()
+  const { trigger: checkLocalConnectorMutation } = useCheckLocalConnector()
   const { trigger: removeManagedServerMutation } = useRemoveManagedServer()
   const { trigger: submitApiKeyMutation, isMutating: isSubmittingApiKey } =
     useSubmitApiKey()
@@ -76,7 +90,9 @@ export const ConnectMCP: FC = () => {
       }
 
       if (!response.oauthUrl) {
-        failedToAddMcp(mcpName, 'No auth URL returned')
+        toast.info(
+          `${mcpName} is saved locally. Add a custom MCP server for live tools.`,
+        )
         return
       }
 
@@ -99,8 +115,7 @@ export const ConnectMCP: FC = () => {
       })
 
       if (!response.apiKeyUrl && !response.oauthUrl) {
-        failedToAddMcp(name, 'No auth URL returned')
-        return
+        toast.success(`${name} added to the local app catalog`)
       }
 
       addServer({
@@ -109,6 +124,7 @@ export const ConnectMCP: FC = () => {
         type: 'managed',
         managedServerName: name,
         managedServerDescription: description,
+        connectionMode: response.connectionMode ?? 'local_catalog',
       })
       track(MANAGED_MCP_ADDED_EVENT, { server_name: name })
 
@@ -116,6 +132,8 @@ export const ConnectMCP: FC = () => {
         setApiKeyServer({ name, description, apiKeyUrl: response.apiKeyUrl })
         return
       }
+
+      if (!response.oauthUrl) return
 
       window.open(response.oauthUrl, '_blank')?.focus()
     } catch (e) {
@@ -184,6 +202,42 @@ export const ConnectMCP: FC = () => {
     track(CUSTOM_MCP_ADDED_EVENT)
   }
 
+  const saveLocalConnector = async (config: {
+    url: string
+    description: string
+    checkResult?: {
+      ok: boolean
+      toolCount: number
+      tools: Array<{ name: string; description?: string }>
+      error?: string
+    }
+  }) => {
+    if (!connectorServer) return
+    await updateServer(connectorServer.id, (server) => ({
+      ...server,
+      config: {
+        ...server.config,
+        url: config.url,
+        description:
+          config.description ||
+          server.config?.description ||
+          server.managedServerDescription ||
+          '',
+        ...(config.checkResult
+          ? {
+              toolCount: config.checkResult.toolCount,
+              tools: config.checkResult.tools,
+              lastCheckedAt: Date.now(),
+              lastCheckStatus: config.checkResult.ok ? 'ok' : 'error',
+              lastCheckError: config.checkResult.error,
+            }
+          : {}),
+      },
+    }))
+    toast.success(`${connectorServer.name} local connector saved`)
+    setConnectorServer(null)
+  }
+
   const availableServers = serversList?.servers.filter((eachServer) => {
     const serverName = eachServer.name
     if (
@@ -201,7 +255,10 @@ export const ConnectMCP: FC = () => {
       const integration = userMCPIntegrations?.integrations?.find(
         (i) => i.name === server.managedServerName,
       )
-      if (!integration?.is_authenticated) {
+      if (
+        !integration?.is_authenticated &&
+        integration?.connection_mode !== 'local_catalog'
+      ) {
         unauthenticatedServers.push({
           name: server.managedServerName,
           description: server.managedServerDescription ?? '',
@@ -221,8 +278,8 @@ export const ConnectMCP: FC = () => {
           <div className="flex-1">
             <h2 className="mb-1 font-semibold text-xl">Connected Apps</h2>
             <p className="mb-6 text-muted-foreground text-sm">
-              Connect BrowserOS assistant to apps to send email, schedule
-              calendar events, write docs, and more
+              Add local app catalog entries or connect custom MCP servers for
+              live tools
             </p>
 
             <div className="flex flex-wrap gap-3">
@@ -232,7 +289,7 @@ export const ConnectMCP: FC = () => {
                 className="border-[var(--accent-orange)] bg-[var(--accent-orange)]/10 text-[var(--accent-orange)] hover:bg-[var(--accent-orange)]/20"
               >
                 <Plus className="h-4 w-4" />
-                <span>Add built-in app</span>
+                <span>Add catalog app</span>
               </Button>
 
               <Button
@@ -252,84 +309,115 @@ export const ConnectMCP: FC = () => {
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
           <h3 className="mb-4 font-semibold text-lg">Your Connected Apps</h3>
           <div className="space-y-3">
-            {createdServers.map((server) => (
-              <div
-                key={server.id}
-                className="flex items-center gap-4 rounded-lg border border-border bg-background p-4 transition-all hover:border-[var(--accent-orange)]/50 hover:shadow-sm"
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)]/10">
-                  <McpServerIcon
-                    serverName={server.managedServerName ?? ''}
-                    size={20}
-                    className="text-[var(--accent-orange)]"
-                  />
-                </div>
-                <div className="flex-1">
-                  <div className="mb-1 flex items-center gap-2">
-                    <span className="font-semibold">{server.displayName}</span>
-                    <span
-                      className={`rounded px-2 py-0.5 font-medium text-xs ${
-                        server.type === 'managed'
-                          ? 'bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {server.type === 'managed' ? 'Built-in' : 'Custom'}
-                    </span>
-                  </div>
-                  <p className="text-muted-foreground text-sm">
-                    {server.managedServerDescription ||
-                      server.config?.description ||
-                      server.config?.url}
-                  </p>
-                </div>
-                {server.type === 'managed' &&
-                  (isUserMCPIntegrationsLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  ) : userMCPIntegrations?.integrations?.find(
-                      (i) => i.name === server.managedServerName,
-                    )?.is_authenticated ? (
-                    <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1 font-medium text-green-600 text-xs">
-                      <Check className="h-3 w-3" />
-                      Authenticated
-                    </span>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        server.managedServerName &&
-                        openAuthUrlForMCP(server.managedServerName)
-                      }
-                    >
-                      Authenticate
-                    </Button>
-                  ))}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  disabled={deletingServerId === server.id}
-                  onClick={() => {
-                    if (server.type === 'managed' && server.managedServerName) {
-                      deleteManagedServer({
-                        id: server.id,
-                        name: server.managedServerName,
-                      })
-                    } else {
-                      removeServer(server.id)
-                    }
-                  }}
-                  className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  title="Remove server"
+            {createdServers.map((server) => {
+              const live = isLiveMcpServer(server)
+              return (
+                <div
+                  key={server.id}
+                  className="flex items-center gap-4 rounded-lg border border-border bg-background p-4 transition-all hover:border-[var(--accent-orange)]/50 hover:shadow-sm"
                 >
-                  {deletingServerId === server.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)]/10">
+                    <McpServerIcon
+                      serverName={server.managedServerName ?? ''}
+                      size={20}
+                      className="text-[var(--accent-orange)]"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className="font-semibold">
+                        {server.displayName}
+                      </span>
+                      <span
+                        className={`rounded px-2 py-0.5 font-medium text-xs ${
+                          live
+                            ? 'bg-green-500/10 text-green-600'
+                            : server.type === 'managed'
+                              ? 'bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]'
+                              : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {live
+                          ? 'Live local MCP'
+                          : server.type === 'managed'
+                            ? 'Catalog'
+                            : 'Custom'}
+                      </span>
+                    </div>
+                    <p className="truncate text-muted-foreground text-sm">
+                      {server.config?.url ||
+                        server.managedServerDescription ||
+                        server.config?.description}
+                    </p>
+                    {live && server.config?.toolCount !== undefined && (
+                      <p className="mt-1 text-muted-foreground text-xs">
+                        {server.config.toolCount} local tools available
+                      </p>
+                    )}
+                  </div>
+                  {server.type === 'managed' && (
+                    <>
+                      {live ? (
+                        <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1 font-medium text-green-600 text-xs">
+                          <Check className="h-3 w-3" />
+                          Connected
+                        </span>
+                      ) : isUserMCPIntegrationsLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : userMCPIntegrations?.integrations?.find(
+                          (i) => i.name === server.managedServerName,
+                        )?.connection_mode === 'local_catalog' ? (
+                        <span className="rounded-full bg-muted px-2 py-1 font-medium text-muted-foreground text-xs">
+                          Local catalog
+                        </span>
+                      ) : null}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setConnectorServer({
+                            id: server.id,
+                            name: server.displayName,
+                            url: server.config?.url,
+                            description:
+                              server.config?.description ??
+                              server.managedServerDescription,
+                          })
+                        }
+                      >
+                        {live ? 'Edit connector' : 'Connect local MCP'}
+                      </Button>
+                    </>
                   )}
-                </Button>
-              </div>
-            ))}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={deletingServerId === server.id}
+                    onClick={() => {
+                      if (
+                        server.type === 'managed' &&
+                        server.managedServerName
+                      ) {
+                        deleteManagedServer({
+                          id: server.id,
+                          name: server.managedServerName,
+                        })
+                      } else {
+                        removeServer(server.id)
+                      }
+                    }}
+                    className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    title="Remove server"
+                  >
+                    {deletingServerId === server.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -353,6 +441,20 @@ export const ConnectMCP: FC = () => {
         open={addingCustomMcp}
         onOpenChange={setAddingCustomMcp}
         onAddServer={addCustomServer}
+      />
+
+      <AddLocalConnectorDialog
+        open={!!connectorServer}
+        serverName={connectorServer?.name ?? ''}
+        initialUrl={connectorServer?.url}
+        initialDescription={connectorServer?.description}
+        onOpenChange={(open) => {
+          if (!open) setConnectorServer(null)
+        }}
+        onCheck={(config) => checkLocalConnectorMutation(config)}
+        onSave={(config) => {
+          void saveLocalConnector(config)
+        }}
       />
 
       <ApiKeyDialog

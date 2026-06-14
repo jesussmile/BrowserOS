@@ -5,6 +5,7 @@
  */
 
 import { randomUUID } from 'node:crypto'
+import type { BrowserOSAgentRoleSummary } from '@browseros/shared/types/role-aware-agents'
 import { desc, eq } from 'drizzle-orm'
 import { type BrowserOsDatabase, getDb } from '../db'
 import { type AgentDefinitionRow, agentDefinitions } from '../db/schema'
@@ -14,6 +15,7 @@ import {
   resolveDefaultModelId,
   resolveDefaultReasoningEffort,
 } from './agent-catalog'
+import { summarizeAgentRole } from './agent-role-bootstrap'
 import type { AgentStore, CreateAgentInput } from './agent-store'
 import type { AgentDefinition } from './agent-types'
 
@@ -195,12 +197,43 @@ function toAgentDefinition(row: AgentDefinitionRow): AgentDefinition | null {
     permissionMode: row.permissionMode,
     sessionKey: row.sessionKey,
     pinned: row.pinned,
+    role: parseRoleSummary(row.adapterConfigJson),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }
 }
 
+function parseRoleSummary(
+  adapterConfigJson: string | null,
+): BrowserOSAgentRoleSummary | undefined {
+  if (!adapterConfigJson) return undefined
+  try {
+    const parsed = JSON.parse(adapterConfigJson) as { role?: unknown }
+    const role = parsed.role
+    if (!role || typeof role !== 'object' || Array.isArray(role)) {
+      return undefined
+    }
+    const record = role as Record<string, unknown>
+    if (
+      (record.roleSource !== 'builtin' && record.roleSource !== 'custom') ||
+      typeof record.roleName !== 'string' ||
+      typeof record.shortDescription !== 'string'
+    ) {
+      return undefined
+    }
+    return {
+      roleSource: record.roleSource,
+      ...(typeof record.roleId === 'string' ? { roleId: record.roleId } : {}),
+      roleName: record.roleName,
+      shortDescription: record.shortDescription,
+    } as BrowserOSAgentRoleSummary
+  } catch {
+    return undefined
+  }
+}
+
 function serializeAdapterConfig(input: CreateAgentInput): string | null {
+  const role = summarizeAgentRole(input)
   const config = {
     ...(input.providerType !== undefined
       ? { providerType: input.providerType }
@@ -213,6 +246,7 @@ function serializeAdapterConfig(input: CreateAgentInput): string | null {
     ...(input.supportsImages !== undefined
       ? { supportsImages: input.supportsImages }
       : {}),
+    ...(role !== undefined ? { role } : {}),
   }
   return Object.keys(config).length > 0 ? JSON.stringify(config) : null
 }

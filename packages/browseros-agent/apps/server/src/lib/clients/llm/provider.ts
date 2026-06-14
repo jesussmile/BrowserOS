@@ -96,7 +96,7 @@ function createBedrockModel(config: ResolvedLLMConfig): LanguageModel {
 }
 
 function createBrowserOSModel(config: ResolvedLLMConfig): LanguageModel {
-  if (!config.baseUrl) throw new Error('BrowserOS provider requires baseUrl')
+  if (!config.baseUrl) throw new Error('PannamOS provider requires baseUrl')
   const { baseUrl, apiKey, model, upstreamProvider, browserosId } = config
   const browserosFetch = browserosId
     ? createBrowserOSFetch(browserosId)
@@ -123,9 +123,9 @@ function createBrowserOSModel(config: ResolvedLLMConfig): LanguageModel {
       fetch: browserosFetch,
     })(model)
   }
-  logger.debug('Creating OpenAI-compatible provider for BrowserOS')
+  logger.debug('Creating OpenAI-compatible provider for PannamOS')
   return createOpenAICompatible({
-    name: 'browseros',
+    name: 'pannamos',
     baseURL: baseUrl,
     ...(apiKey && { apiKey }),
     fetch: browserosFetch,

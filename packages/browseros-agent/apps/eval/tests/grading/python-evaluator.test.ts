@@ -13,10 +13,15 @@ async function writeScript(source: string): Promise<string> {
 
 async function writePythonWrapper(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'eval-python-wrapper-'))
-  const wrapper = join(dir, 'python-wrapper')
+  const wrapper =
+    process.platform === 'win32'
+      ? join(dir, 'python-wrapper.cmd')
+      : join(dir, 'python-wrapper')
   await writeFile(
     wrapper,
-    '#!/bin/sh\necho custom-python >&2\nexec python3 "$@"\n',
+    process.platform === 'win32'
+      ? '@echo off\r\necho custom-python 1>&2\r\npython %*\r\n'
+      : '#!/bin/sh\necho custom-python >&2\nexec python3 "$@"\n',
   )
   await chmod(wrapper, 0o755)
   return wrapper

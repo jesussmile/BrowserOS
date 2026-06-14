@@ -6,11 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"browseros-dogfood/browser"
@@ -130,7 +128,7 @@ func runEnvironment(cfg config.Config, opts environmentOptions) error {
 	defer env.Stop()
 
 	sigCh := make(chan os.Signal, 2)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	notifyShutdownSignals(sigCh)
 	<-sigCh
 	fmt.Println()
 	proc.LogMsg(proc.TagInfo, proc.WarnColor.Sprint("Shutting down (Ctrl+C again to force)..."))

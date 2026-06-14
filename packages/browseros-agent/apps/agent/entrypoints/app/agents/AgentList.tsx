@@ -135,6 +135,7 @@ function buildRowData(input: {
     adapter,
     modelLabel: deriveModelLabel(agent, harness),
     reasoningEffort: harness?.reasoningEffort ?? null,
+    roleLabel: agent.roleLabel ?? harness?.role?.roleName ?? null,
     status: activity?.status ?? 'unknown',
     lastUsedAt: activity?.lastUsedAt ?? harness?.lastUsedAt ?? null,
     pinned: harness?.pinned ?? false,

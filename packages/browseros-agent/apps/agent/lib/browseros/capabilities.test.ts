@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import {
+  Capabilities,
   checkFeatureSupport,
   Feature,
   resolveStaticFeatureSupport,
@@ -42,6 +43,20 @@ describe('resolveStaticFeatureSupport', () => {
         alphaFeaturesEnabled: false,
       }),
     ).toBeNull()
+  })
+})
+
+describe('private local-first static feature support', () => {
+  it('enables local PannamOS features without BrowserOS version metadata', () => {
+    expect(Capabilities.getStaticSupport(Feature.AGENT_HARNESS_SUPPORT)).toBe(
+      true,
+    )
+    expect(
+      Capabilities.getStaticSupport(Feature.OPENAI_COMPATIBLE_SUPPORT),
+    ).toBe(true)
+    expect(Capabilities.getStaticSupport(Feature.CHATGPT_PRO_SUPPORT)).toBe(
+      true,
+    )
   })
 })
 

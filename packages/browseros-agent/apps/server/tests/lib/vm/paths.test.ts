@@ -42,43 +42,43 @@ describe('VM paths', () => {
     }
   })
 
-  it('uses production VM directories below .browseros', () => {
+  it('uses production VM directories below .pannamos', () => {
     process.env.NODE_ENV = 'production'
     delete process.env.BROWSEROS_DIR
 
-    expect(getLimaHomeDir()).toBe(join(homedir(), '.browseros', 'lima'))
-    expect(getVmStateDir()).toBe(join(homedir(), '.browseros', 'vm'))
+    expect(getLimaHomeDir()).toBe(join(homedir(), '.pannamos', 'lima'))
+    expect(getVmStateDir()).toBe(join(homedir(), '.pannamos', 'vm'))
   })
 
-  it('uses development VM directories below .browseros-dev', () => {
+  it('uses development VM directories below .pannamos-dev', () => {
     process.env.NODE_ENV = 'development'
     delete process.env.BROWSEROS_DIR
 
-    expect(getLimaHomeDir()).toBe(join(homedir(), '.browseros-dev', 'lima'))
-    expect(getVmStateDir()).toBe(join(homedir(), '.browseros-dev', 'vm'))
+    expect(getLimaHomeDir()).toBe(join(homedir(), '.pannamos-dev', 'lima'))
+    expect(getVmStateDir()).toBe(join(homedir(), '.pannamos-dev', 'vm'))
   })
 
   it('builds VM storage paths', () => {
-    const root = '/Users/foo/.browseros'
+    const root = '/Users/foo/.pannamos'
 
-    expect(getVmCacheDir(root)).toBe('/Users/foo/.browseros/cache/vm')
+    expect(getVmCacheDir(root)).toBe(join(root, 'cache', 'vm'))
     expect(getContainerdSocketPath(root)).toBe(
-      '/Users/foo/.browseros/lima/browseros-vm/sock/containerd.sock',
+      join(root, 'lima', 'pannamos-vm', 'sock', 'containerd.sock'),
     )
   })
 
   it('translates mounted host paths into guest paths', () => {
-    const root = '/Users/foo/.browseros'
+    const root = '/Users/foo/.pannamos'
 
-    expect(hostPathToGuest('/Users/foo/.browseros/vm/state/x', root)).toBe(
+    expect(hostPathToGuest('/Users/foo/.pannamos/vm/state/x', root)).toBe(
       '/mnt/browseros/vm/state/x',
     )
   })
 
   it('rejects unmapped host paths', () => {
-    expect(() =>
-      hostPathToGuest('/tmp/other', '/Users/foo/.browseros'),
-    ).toThrow('not under any known guest mount')
+    expect(() => hostPathToGuest('/tmp/other', '/Users/foo/.pannamos')).toThrow(
+      'not under any known guest mount',
+    )
   })
 
   it('detects supported host architectures', () => {
@@ -242,7 +242,7 @@ describe('VM paths', () => {
   it('resolves the bundled Lima template', async () => {
     process.env.NODE_ENV = 'production'
     const resourcesDir = await mkdtemp(join(tmpdir(), 'lima-template-'))
-    const templatePath = join(resourcesDir, 'vm', 'browseros-vm.yaml')
+    const templatePath = join(resourcesDir, 'vm', 'pannamos-vm.yaml')
     await mkdir(dirname(templatePath), { recursive: true })
     await writeFile(templatePath, 'mounts: []\n')
 
@@ -262,7 +262,7 @@ describe('VM paths', () => {
       'packages',
       'build-tools',
       'template',
-      'browseros-vm.yaml',
+      'pannamos-vm.yaml',
     )
     await mkdir(resourcesDir, { recursive: true })
     await mkdir(dirname(templatePath), { recursive: true })

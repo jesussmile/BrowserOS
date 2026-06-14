@@ -1,4 +1,4 @@
-version: "1.0"
+﻿version: "1.0"
 features:
   # ── LAYER 1: CORE & BRANDING ──────────────────────────────
   # Foundation patches applied first. Shared files (3+ features)
@@ -47,6 +47,7 @@ features:
       - chrome/common/chrome_paths_linux.cc
       - chrome/install_static/chromium_install_modes.cc
       - chrome/install_static/chromium_install_modes.h
+      - chrome/install_static/user_data_dir.cc
       # About page (version + branding display)
       - chrome/browser/resources/settings/about_page/about_page.html
       - chrome/browser/resources/settings/about_page/about_page.ts

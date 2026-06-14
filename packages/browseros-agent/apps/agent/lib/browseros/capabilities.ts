@@ -148,6 +148,15 @@ type CapabilitiesState = {
 let initPromise: Promise<CapabilitiesState> | null = null
 
 function getStaticFeatureSupport(feature: Feature): boolean | null {
+  // Private local-first fork: these capabilities are provided by the bundled
+  // local server/UI and must not depend on upstream BrowserOS version metadata.
+  if (
+    feature === Feature.AGENT_HARNESS_SUPPORT ||
+    feature === Feature.OPENAI_COMPATIBLE_SUPPORT ||
+    feature === Feature.CHATGPT_PRO_SUPPORT
+  )
+    return true
+
   const config = FEATURE_CONFIG[feature]
   if (!config) return false
   return resolveStaticFeatureSupport({

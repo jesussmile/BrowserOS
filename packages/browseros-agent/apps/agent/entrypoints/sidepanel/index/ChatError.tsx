@@ -32,17 +32,16 @@ function parseErrorMessage(
 } {
   const isBrowserosProvider = providerType === 'browseros'
 
-  // All chat requests go through the local BrowserOS agent server, so any
+  // All chat requests go through the local PannamOS agent server, so any
   // fetch failure is always a local connection issue.
   if (message.includes('Failed to fetch') || message.includes('fetch failed')) {
     return {
-      text: 'Unable to connect to BrowserOS agent. Follow below instructions.',
-      url: 'https://docs.browseros.com/troubleshooting/connection-issues',
+      text: 'Unable to connect to the local PannamOS agent. Restart the browser or the local PannamOS server, then try again.',
       isConnectionError: true,
     }
   }
 
-  // Detect credit exhaustion from gateway (BrowserOS provider only)
+  // Detect credit exhaustion from upstream managed gateway (disabled provider only)
   if (
     isBrowserosProvider &&
     (message.includes('CREDITS_EXHAUSTED') ||
@@ -57,14 +56,11 @@ function parseErrorMessage(
     }
   }
 
-  // Detect BrowserOS rate limit (BrowserOS provider only)
-  if (
-    isBrowserosProvider &&
-    message.includes('BrowserOS LLM daily limit reached')
-  ) {
+  // Detect upstream managed-provider rate limit (disabled provider only)
+  if (isBrowserosProvider && message.includes('LLM daily limit reached')) {
     return {
-      text: 'Add your own API key for unlimited usage.',
-      url: 'https://dub.sh/browseros-usage-limit',
+      text: 'The upstream cloud provider is disabled in this private build. Add a local or provider-owned model configuration instead.',
+      url: '/app.html#/settings/ai',
       isRateLimit: true,
     }
   }

@@ -28,13 +28,12 @@ import { WorkspaceSelector } from '@/components/elements/workspace-selector'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { McpServerIcon } from '@/entrypoints/app/connect-mcp/McpServerIcon'
-import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetUserMCPIntegrations'
 import { type StagedAttachment, stageAttachments } from '@/lib/attachments'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
-import { BrowserOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
+import { PannamOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import type { ProviderType } from '@/lib/llm-providers/types'
-import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import { isLiveMcpServer, useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { cn } from '@/lib/utils'
 import { useVoiceInput } from '@/lib/voice/useVoiceInput'
 import { useWorkspace } from '@/lib/workspace/use-workspace'
@@ -48,7 +47,7 @@ interface ConversationInputProps {
   onSend: (input: ConversationInputSendInput) => void
   /**
    * Merged provider/agent picker shown only on the `home` variant. Lets the
-   * composer target either an LLM provider (BrowserOS, etc.) or a named agent.
+   * composer target either an LLM provider or a named agent.
    */
   providers?: Provider[]
   selectedProvider?: Provider | null
@@ -202,13 +201,10 @@ function CalmContextControls({
   const { supports } = useCapabilities()
   const { selectedFolder } = useWorkspace()
   const { servers: mcpServers } = useMcpServers()
-  const { data: userMCPIntegrations } = useGetUserMCPIntegrations()
 
   const connectedManagedServers = mcpServers.filter((server) => {
     if (server.type !== 'managed' || !server.managedServerName) return false
-    return userMCPIntegrations?.integrations?.find(
-      (integration) => integration.name === server.managedServerName,
-    )?.is_authenticated
+    return isLiveMcpServer(server)
   })
 
   const showApps = supports(Feature.MANAGED_MCP_SUPPORT)
@@ -729,6 +725,6 @@ function BotInputIcon({ variant }: { variant: 'home' | 'conversation' }) {
 
 function TargetPillIcon({ provider }: { provider: Provider }) {
   if (provider.kind === 'acp') return <Bot className="size-3" />
-  if (provider.type === 'browseros') return <BrowserOSIcon size={12} />
+  if (provider.type === 'browseros') return <PannamOSIcon size={12} />
   return <ProviderIcon type={provider.type as ProviderType} size={12} />
 }

@@ -3,6 +3,7 @@ package pipeline
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -18,7 +19,7 @@ func TestWriteProductionEnvFiles(t *testing.T) {
 				"LOG_LEVEL": "debug",
 			},
 			CLI: map[string]string{
-				"R2_BUCKET":        "browseros",
+				"R2_BUCKET":        "private-browseros",
 				"R2_UPLOAD_PREFIX": "",
 			},
 		},
@@ -28,11 +29,11 @@ func TestWriteProductionEnvFiles(t *testing.T) {
 	}
 	assertMode(t, filepath.Join(root, "apps/server/.env.production"), 0600)
 	assertMode(t, filepath.Join(root, "apps/cli/.env.production"), 0600)
-	assertContains(t, filepath.Join(root, "apps/server/.env.production"), "BROWSEROS_CONFIG_URL=https://llm.browseros.com/api/browseros-server/config\n")
+	assertContains(t, filepath.Join(root, "apps/server/.env.production"), "BROWSEROS_CONFIG_URL=\n")
 	assertContains(t, filepath.Join(root, "apps/server/.env.production"), "LOG_LEVEL=debug\n")
 	assertContains(t, filepath.Join(root, "apps/server/.env.production"), "NODE_ENV=production\n")
 	assertContains(t, filepath.Join(root, "apps/cli/.env.production"), "POSTHOG_API_KEY=\n")
-	assertContains(t, filepath.Join(root, "apps/cli/.env.production"), "R2_BUCKET=browseros\n")
+	assertContains(t, filepath.Join(root, "apps/cli/.env.production"), "R2_BUCKET=private-browseros\n")
 	assertContains(t, filepath.Join(root, "apps/cli/.env.production"), "R2_UPLOAD_PREFIX=\n")
 }
 
@@ -64,6 +65,9 @@ func assertContains(t *testing.T, path string, want string) {
 
 func assertMode(t *testing.T, path string, want os.FileMode) {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		return
+	}
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)

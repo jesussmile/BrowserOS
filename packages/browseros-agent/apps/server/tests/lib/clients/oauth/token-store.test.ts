@@ -5,20 +5,18 @@
 
 import { afterEach, describe, expect, it } from 'bun:test'
 import { mkdtempSync } from 'node:fs'
-import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { OAuthTokenStore } from '../../../../src/lib/clients/oauth/token-store'
 import { closeDb, initializeDb } from '../../../../src/lib/db'
+import { rmTempDirs } from '../../../__helpers__/rm-temp-dir'
 
 describe('OAuthTokenStore', () => {
   const tempDirs: string[] = []
 
   afterEach(async () => {
     closeDb()
-    await Promise.all(
-      tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
-    )
+    await rmTempDirs(tempDirs)
     tempDirs.length = 0
   })
 
@@ -70,11 +68,68 @@ describe('OAuthTokenStore', () => {
     })
   })
 
+  it('adopts the latest local provider token when the install id changes', async () => {
+    const store = createStore()
+
+    store.upsertTokens('old-browseros-id', 'chatgpt-pro', {
+      accessToken: 'old-access',
+      refreshToken: 'old-refresh',
+      expiresAt: 1234,
+      email: 'old@example.com',
+      accountId: 'old-account',
+    })
+    await Bun.sleep(2)
+    store.upsertTokens('newer-browseros-id', 'chatgpt-pro', {
+      accessToken: 'new-access',
+      refreshToken: 'new-refresh',
+      expiresAt: 5678,
+      email: 'new@example.com',
+      accountId: 'new-account',
+    })
+
+    expect(store.getStatus('current-install-id', 'chatgpt-pro')).toEqual({
+      authenticated: true,
+      email: 'new@example.com',
+      provider: 'chatgpt-pro',
+    })
+    expect(store.getTokens('current-install-id', 'chatgpt-pro')).toEqual({
+      accessToken: 'new-access',
+      refreshToken: 'new-refresh',
+      expiresAt: 5678,
+      email: 'new@example.com',
+      accountId: 'new-account',
+    })
+  })
+
+  it('disconnects all local tokens for a provider so adopted rows do not reappear', () => {
+    const store = createStore()
+
+    store.upsertTokens('old-browseros-id', 'chatgpt-pro', {
+      accessToken: 'old-access',
+      refreshToken: 'old-refresh',
+      expiresAt: 1234,
+    })
+    store.upsertTokens('current-install-id', 'chatgpt-pro', {
+      accessToken: 'current-access',
+      refreshToken: 'current-refresh',
+      expiresAt: 5678,
+    })
+
+    store.deleteTokens('current-install-id', 'chatgpt-pro')
+
+    expect(store.getTokens('current-install-id', 'chatgpt-pro')).toBeNull()
+    expect(store.getStatus('current-install-id', 'chatgpt-pro')).toEqual({
+      authenticated: false,
+      email: undefined,
+      provider: 'chatgpt-pro',
+    })
+  })
+
   function createStore(): OAuthTokenStore {
     const dir = mkdtempSync(join(tmpdir(), 'browseros-oauth-store-test-'))
     tempDirs.push(dir)
     const handle = initializeDb({
-      dbPath: join(dir, 'db', 'browseros.sqlite'),
+      dbPath: join(dir, 'db', 'pannamos.sqlite'),
     })
     return new OAuthTokenStore(handle.db)
   }

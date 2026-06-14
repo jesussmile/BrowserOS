@@ -1,6 +1,7 @@
 import { createMCPClient } from '@ai-sdk/mcp'
 import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
+import { isLoopbackHttpUrl } from '@browseros/shared/utils/local-url'
 import type { ToolSet } from 'ai'
 import { logger } from '../lib/logger'
 import {
@@ -33,7 +34,16 @@ export async function buildMcpServerSpecs(
 
   // User-provided custom MCP servers
   if (deps.browserContext?.customMcpServers?.length) {
-    const servers = deps.browserContext.customMcpServers
+    const servers = deps.browserContext.customMcpServers.filter((server) => {
+      const isLocal = isLoopbackHttpUrl(server.url)
+      if (!isLocal) {
+        logger.warn('Skipping non-local MCP server in private build', {
+          name: server.name,
+          url: server.url,
+        })
+      }
+      return isLocal
+    })
     const transports = await Promise.all(
       servers.map((s) => detectMcpTransport(s.url)),
     )

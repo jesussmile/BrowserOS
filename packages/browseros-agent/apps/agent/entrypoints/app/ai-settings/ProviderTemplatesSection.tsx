@@ -42,7 +42,7 @@ export const ProviderTemplatesSection: FC<ProviderTemplatesSectionProps> = ({
           <div>
             <h3 className="font-semibold text-lg">Quick provider templates</h3>
             <p className="text-muted-foreground text-sm">
-              {filteredTemplates.length} templates available
+              ChatGPT account login and API provider setup
             </p>
           </div>
           <ChevronDown

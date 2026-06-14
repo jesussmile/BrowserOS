@@ -17,7 +17,7 @@ export interface ToolInvocationInfo {
   toolCallId: string
   toolName: string
   input: Record<string, unknown>
-  output: unknown[]
+  output?: unknown
   approval?: { id: string; approved?: boolean; reason?: string }
 }
 
@@ -130,8 +130,7 @@ export const getMessageSegments = (
           state: toolPart.state,
           toolCallId: toolPart.toolCallId,
           toolName,
-          input: toolPart?.input ?? {},
-          output: (toolPart?.output as unknown[]) ?? [],
+          input: {},
           approval: toolPart?.approval,
         })
       }

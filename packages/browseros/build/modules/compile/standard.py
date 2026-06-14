@@ -71,6 +71,47 @@ class CompileModule(CommandModule):
         log_info(f"Created VERSION file: {ctx.browseros_chromium_version}")
 
 
+class WindowsInstallerCompileModule(CompileModule):
+    produces = ["setup", "mini_installer"]
+    requires = []
+    description = "Build Windows setup.exe and mini_installer.exe"
+
+    def validate(self, ctx: Context) -> None:
+        super().validate(ctx)
+        if not IS_WINDOWS():
+            raise ValidationError("Windows installer build requires Windows")
+
+    def execute(self, ctx: Context) -> None:
+        log_info("\n🔨 Building PannamOS Windows installer targets...")
+
+        self._create_version_file(ctx)
+
+        autoninja_cmd = "autoninja.bat" if IS_WINDOWS() else "autoninja"
+        run_command(
+            [autoninja_cmd, "-C", ctx.out_dir, "setup", "mini_installer"],
+            cwd=ctx.chromium_src,
+        )
+
+        build_output_dir = join_paths(ctx.chromium_src, ctx.out_dir)
+        setup_exe_path = build_output_dir / "setup.exe"
+        mini_installer_path = build_output_dir / "mini_installer.exe"
+
+        missing = [
+            path.name
+            for path in (setup_exe_path, mini_installer_path)
+            if not path.exists()
+        ]
+        if missing:
+            raise RuntimeError(
+                "Installer target build finished but missing: " + ", ".join(missing)
+            )
+
+        ctx.artifact_registry.add("setup", setup_exe_path)
+        ctx.artifact_registry.add("mini_installer", mini_installer_path)
+
+        log_success("Windows installer targets built successfully")
+
+
 def build_target(ctx: Context, target: str) -> bool:
     """Build a specific target (e.g., mini_installer)"""
     log_info(f"\n🔨 Building target: {target}")

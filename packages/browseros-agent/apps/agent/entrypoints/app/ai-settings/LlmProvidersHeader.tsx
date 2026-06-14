@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react'
+import { LogIn, Plus } from 'lucide-react'
 import type { FC } from 'react'
 import ProductLogoSvg from '@/assets/product_logo.svg'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,9 @@ import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 interface LlmProvidersHeaderProps {
   providers: LlmProviderConfig[]
   defaultProviderId: string
+  chatgptAccountButtonLabel: string
   onDefaultProviderChange: (providerId: string) => void
+  onConnectChatGPTAccount: () => void
   onAddProvider: () => void
 }
 
@@ -24,19 +26,22 @@ interface LlmProvidersHeaderProps {
 export const LlmProvidersHeader: FC<LlmProvidersHeaderProps> = ({
   providers,
   defaultProviderId,
+  chatgptAccountButtonLabel,
   onDefaultProviderChange,
+  onConnectChatGPTAccount,
   onAddProvider,
 }) => {
   return (
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-orange)]/10">
-          <img src={ProductLogoSvg} alt="BrowserOS" className="h-8 w-8" />
+          <img src={ProductLogoSvg} alt="PannamOS" className="h-8 w-8" />
         </div>
         <div className="flex-1">
           <h2 className="mb-1 font-semibold text-xl">LLM Providers</h2>
           <p className="mb-6 text-muted-foreground text-sm">
-            Add your provider and choose the default LLM
+            Connect a ChatGPT Plus/Pro account or add a local API provider, then
+            choose the default LLM.
           </p>
 
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
@@ -64,6 +69,10 @@ export const LlmProvidersHeader: FC<LlmProvidersHeaderProps> = ({
                 ))}
               </SelectContent>
             </Select>
+            <Button onClick={onConnectChatGPTAccount}>
+              <LogIn className="h-4 w-4" />
+              {chatgptAccountButtonLabel}
+            </Button>
             <Button
               variant="outline"
               onClick={onAddProvider}

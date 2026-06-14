@@ -129,7 +129,7 @@ export const activate_window = defineTool({
 export const set_window_visibility = defineTool({
   name: 'set_window_visibility',
   description:
-    'Set a browser window visible or hidden. Returns the new window ID because BrowserOS may replace the window during the transition.',
+    'Set a browser window visible or hidden. Returns the new window ID because PannamOS may replace the window during the transition.',
   input: z.object({
     windowId: z.number().describe('Window ID to show or hide'),
     visible: z.boolean().describe('Set true to show, false to hide'),

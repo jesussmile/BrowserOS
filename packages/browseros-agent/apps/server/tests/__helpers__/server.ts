@@ -131,7 +131,7 @@ export async function spawnServer(config: ServerConfig): Promise<ServerState> {
     await killServer()
   }
 
-  console.log(`Starting BrowserOS Server on port ${config.serverPort}...`)
+  console.log(`Starting PannamOS Server on port ${config.serverPort}...`)
   const stdoutBuffer: string[] = []
   const stderrBuffer: string[] = []
   const process = spawn(

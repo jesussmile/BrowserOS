@@ -1,4 +1,5 @@
 import type { DynamicToolUIPart, ToolUIPart, UIMessage } from 'ai'
+import { sanitizeToolPayloadForUi } from '../conversations/messageSanitization'
 import type {
   ExecutionStepApproval,
   ExecutionStepRecord,
@@ -103,8 +104,14 @@ function createStepRecord(
     state,
     startedAt: existingStep?.startedAt ?? nowIso,
     completedAt: getCompletedAt(existingStep, state, nowIso),
-    input: part.input,
-    output: 'output' in part ? part.output : undefined,
+    input: sanitizeToolPayloadForUi(part.input),
+    output:
+      'output' in part
+        ? {
+            _pannamosOmitted: true,
+            preview: getPreviewText(part),
+          }
+        : undefined,
     errorText: 'errorText' in part ? part.errorText : undefined,
     previewText: getPreviewText(part),
     approval: getApproval(part),

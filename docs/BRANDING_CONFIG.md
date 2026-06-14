@@ -4,6 +4,8 @@ This document defines the phase-1 direction for a private branding and configura
 
 BrowserOS attribution, AGPL-3.0 notices, upstream URLs used for license/history context, and existing copyright headers must remain intact unless legal review approves a specific change.
 
+For the current runtime status and install/launcher history, see [PHASE1_STATUS.md](PHASE1_STATUS.md).
+
 ## Current State
 
 Branding and public configuration are currently spread across the agent extension, server env examples, docs, and assets.
@@ -19,6 +21,13 @@ Primary agent touchpoints:
 - `packages/browseros-agent/apps/agent/.env.example`: public API, telemetry, and browser binary defaults.
 - `packages/browseros-agent/apps/server/.env.example`: server config, telemetry, and install/client ID defaults.
 
+Primary browser build touchpoints:
+
+- `packages/browseros/build/common/product_identity.py`: PannamOS product name, Windows install identity, GUIDs, CLSIDs, ProgIDs, and protocol scheme.
+- `packages/browseros/build/common/context.py`: build app base name and artifact names such as `PannamOS_v<version>_<arch>_installer.exe`.
+- `packages/browseros/chromium_files/chrome/app/theme/chromium/BRANDING.*`: Chromium branding replacement metadata.
+- `packages/browseros/chromium_patches/chrome/install_static/chromium_install_modes.h`: Windows install-static patch values.
+
 ## Private Layer Shape
 
 The first private branding/config layer should be a small typed module consumed by app surfaces that already centralize product metadata.
@@ -31,6 +40,8 @@ Recommended future files if the server or shared packages need the same values:
 
 - `packages/browseros-agent/packages/shared/src/private-product-config.ts`
 - `packages/browseros-agent/apps/server/src/lib/private-product-config.ts`
+
+Browser build identity currently uses a Python config module rather than TypeScript because it is consumed by the Chromium build scripts.
 
 Start with values that are safe to commit:
 
@@ -80,6 +91,8 @@ $env:BROWSEROS_PRIVATE_DISABLE_UPDATE_URL='true'
 bun run build:agent
 Remove-Item Env:BROWSEROS_PRIVATE_DISABLE_UPDATE_URL
 ```
+
+The current private launcher also disables the official managed BrowserOS extension/update path at runtime and loads the private unpacked extension directly from `packages/browseros-agent/apps/agent/dist/chrome-mv3`. That launcher behavior is for local validation only; a packaged private build still needs a formal update-channel decision.
 
 ## Attribution Policy
 

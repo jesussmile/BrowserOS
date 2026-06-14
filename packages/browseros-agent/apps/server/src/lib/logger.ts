@@ -17,7 +17,7 @@ import type { LoggerInterface, LogLevel } from '@browseros/shared/types/logger'
 import pino from 'pino'
 
 const isDev = process.env.NODE_ENV === 'development'
-const LOG_FILE_NAME = 'browseros-server.log'
+const LOG_FILE_NAME = 'pannamos-server.log'
 const LOG_FILE_MAX_AGE_MS = 24 * 60 * 60 * 1000 // 1 day
 
 /**

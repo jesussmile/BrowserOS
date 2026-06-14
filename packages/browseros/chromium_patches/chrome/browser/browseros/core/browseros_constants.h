@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000000..fdeee36f8cc70
 --- /dev/null
 +++ b/chrome/browser/browseros/core/browseros_constants.h
-@@ -0,0 +1,227 @@
+@@ -0,0 +1,223 @@
 +// Copyright 2024 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -26,35 +26,35 @@ index 0000000000000..fdeee36f8cc70
 +  return base::CommandLine::ForCurrentProcess()->HasSwitch(kDisableUrlOverrides);
 +}
 +
-+// BrowserOS extension config URLs
++// Extension config URLs are intentionally inert in PannamOS private builds.
++// PannamOS installs its local bundled agent CRX instead of BrowserOS CDN
++// extensions.
 +inline constexpr char kBrowserOSConfigUrl[] =
-+    "https://cdn.browseros.com/extensions/extensions.json";
++    "";
 +inline constexpr char kBrowserOSAlphaConfigUrl[] =
-+    "https://cdn.browseros.com/extensions/extensions.alpha.json";
++    "";
 +
-+// Agent Extension ID
++// Agent Extension ID. The PannamOS build module rewrites this placeholder to
++// the private bundled agent CRX ID.
 +inline constexpr char kAgentExtensionId[] =
-+    "bflpfmnmnokmjhmgnolecpppdbdophmk";
++    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 +
-+// Bug Reporter Extension ID
++// BrowserOS cloud-managed extension IDs are disabled in PannamOS.
 +inline constexpr char kBugReporterExtensionId[] =
-+    "adlpneommgkgeanpaekgoaolcpncohkf";
++    "";
 +
-+// Controller Extension ID
 +inline constexpr char kControllerExtensionId[] =
-+    "nlnihljpboknmfagkikhkdblbedophja";
++    "";
 +
 +// uBlock Origin Extension ID (Chrome Web Store)
 +// inline constexpr char kUBlockOriginExtensionId[] =
 +//     "cjpalhdlnbpafiamejdnhcphjbkeiagm";
 +
-+// BrowserOS CDN update manifest URL
-+// Used for extensions installed from local .crx files that don't have
-+// an update_url in their manifest
++// PannamOS does not use BrowserOS public extension update manifests.
 +inline constexpr char kBrowserOSUpdateUrl[] =
-+    "https://cdn.browseros.com/extensions/update-manifest.xml";
++    "";
 +inline constexpr char kBrowserOSAlphaUpdateUrl[] =
-+    "https://cdn.browseros.com/extensions/update-manifest.alpha.xml";
++    "";
 +
 +// chrome://browseros host constant
 +inline constexpr char kBrowserOSHost[] = "browseros";
@@ -172,10 +172,6 @@ index 0000000000000..fdeee36f8cc70
 +
 +inline constexpr BrowserOSExtensionInfo kBrowserOSExtensions[] = {
 +    {kAgentExtensionId, false, false},
-+    {kBugReporterExtensionId, true, false},
-+    {kControllerExtensionId, false, false},
-+    // ublock origin gets installed from chrome web store
-+    // {kUBlockOriginExtensionId, false, false},
 +};
 +
 +inline constexpr size_t kBrowserOSExtensionsCount =

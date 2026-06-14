@@ -5,9 +5,10 @@
  */
 
 import { accessSync, constants, statSync } from 'node:fs'
-import { delimiter, join } from 'node:path'
+import { join, posix } from 'node:path'
 
 export const BUNDLED_BUN_RELATIVE_PATH = join('bin', 'third_party', 'bun')
+const MACOS_PATH_DELIMITER = ':'
 
 /** Resolves the packaged Bun executable used to run ACP adapter packages. */
 export function resolveBundledBun(input: {
@@ -21,7 +22,11 @@ export function resolveBundledBun(input: {
 
   const candidate = join(resourcesDir, BUNDLED_BUN_RELATIVE_PATH)
   try {
-    if (!statSync(candidate).isFile()) return null
+    const candidateStats = statSync(candidate)
+    if (!candidateStats.isFile()) return null
+    if (process.platform !== 'win32' && (candidateStats.mode & 0o111) === 0) {
+      return null
+    }
     accessSync(candidate, constants.X_OK)
     return candidate
   } catch {
@@ -36,8 +41,8 @@ export function buildMacosAcpAdapterPath(input: {
 }): string {
   const home = input.home?.trim()
   const candidates = [
-    home ? join(home, '.local', 'bin') : '',
-    home ? join(home, '.bun', 'bin') : '',
+    home ? posix.join(home, '.local', 'bin') : '',
+    home ? posix.join(home, '.bun', 'bin') : '',
     '/opt/homebrew/bin',
     '/usr/local/bin',
     input.basePath ?? '',
@@ -48,7 +53,7 @@ export function buildMacosAcpAdapterPath(input: {
   ]
 
   const parts = candidates.flatMap((value) =>
-    value.split(delimiter).filter(Boolean),
+    value.split(MACOS_PATH_DELIMITER).filter(Boolean),
   )
-  return [...new Set(parts)].join(delimiter)
+  return [...new Set(parts)].join(MACOS_PATH_DELIMITER)
 }

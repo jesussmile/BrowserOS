@@ -44,9 +44,9 @@ describe('LimaCli', () => {
         list: {
           stdout: JSON.stringify([
             {
-              name: 'browseros-vm',
+              name: 'pannamos-vm',
               status: 'Running',
-              dir: '/lima/browseros-vm',
+              dir: '/lima/pannamos-vm',
             },
           ]),
         },
@@ -56,7 +56,7 @@ describe('LimaCli', () => {
     const cli = new LimaCli({ limactlPath, limaHome })
 
     await expect(cli.list()).resolves.toEqual([
-      { name: 'browseros-vm', status: 'Running', dir: '/lima/browseros-vm' },
+      { name: 'pannamos-vm', status: 'Running', dir: '/lima/pannamos-vm' },
     ])
   })
 
@@ -71,10 +71,10 @@ describe('LimaCli', () => {
     const limactlPath = await fakeLimactl({ create: {} }, logPath)
     const cli = new LimaCli({ limactlPath, limaHome })
 
-    await cli.create('browseros-vm', '/tmp/browseros-vm.yaml')
+    await cli.create('pannamos-vm', '/tmp/pannamos-vm.yaml')
 
     await expect(readFile(logPath, 'utf8')).resolves.toContain(
-      'ARGS:create --tty=false --name=browseros-vm /tmp/browseros-vm.yaml',
+      'ARGS:create --tty=false --name=pannamos-vm /tmp/pannamos-vm.yaml',
     )
     await expect(readFile(logPath, 'utf8')).resolves.toContain(
       `LIMA_HOME:${limaHome}`,
@@ -85,10 +85,10 @@ describe('LimaCli', () => {
     const limactlPath = await fakeLimactl({ start: {} }, logPath)
     const cli = new LimaCli({ limactlPath, limaHome })
 
-    await cli.start('browseros-vm')
+    await cli.start('pannamos-vm')
 
     await expect(readFile(logPath, 'utf8')).resolves.toContain(
-      'ARGS:start --tty=false browseros-vm',
+      'ARGS:start --tty=false pannamos-vm',
     )
   })
 
@@ -99,7 +99,7 @@ describe('LimaCli', () => {
     )
     const cli = new LimaCli({ limactlPath, limaHome })
 
-    const error = await cli.start('browseros-vm').catch((err) => err)
+    const error = await cli.start('pannamos-vm').catch((err) => err)
 
     expect(error).toBeInstanceOf(LimaCommandError)
     expect(error.exitCode).toBe(2)
@@ -114,7 +114,7 @@ describe('LimaCli', () => {
     )
     const cli = new LimaCli({ limactlPath, limaHome })
 
-    await cli.start('browseros-vm')
+    await cli.start('pannamos-vm')
 
     expect(
       debug.mock.calls.some(
@@ -127,24 +127,24 @@ describe('LimaCli', () => {
     const limactlPath = await fakeLimactl({ stop: {}, delete: {} }, logPath)
     const cli = new LimaCli({ limactlPath, limaHome })
 
-    await cli.stop('browseros-vm')
-    await cli.delete('browseros-vm')
+    await cli.stop('pannamos-vm')
+    await cli.delete('pannamos-vm')
 
     const log = await readFile(logPath, 'utf8')
-    expect(log).toContain('ARGS:stop browseros-vm')
-    expect(log).toContain('ARGS:delete --force browseros-vm')
+    expect(log).toContain('ARGS:stop pannamos-vm')
+    expect(log).toContain('ARGS:delete --force pannamos-vm')
   })
 
   it('runs shell commands and streams stdout and stderr', async () => {
     const sshPath = await fakeSsh({ stdout: 'out\n', stderr: 'err\n' }, logPath)
-    const sshConfig = join(limaHome, 'browseros-vm', 'ssh.config')
-    await mkdir(join(limaHome, 'browseros-vm'), { recursive: true })
+    const sshConfig = join(limaHome, 'pannamos-vm', 'ssh.config')
+    await mkdir(join(limaHome, 'pannamos-vm'), { recursive: true })
     await writeFile(sshConfig, '')
     const cli = new LimaCli({ limactlPath: 'unused', limaHome, sshPath })
     const lines: string[] = []
 
     await expect(
-      cli.shell('browseros-vm', ['nerdctl', 'ps'], {
+      cli.shell('pannamos-vm', ['nerdctl', 'ps'], {
         onStdout: (line) => lines.push(`stdout:${line}`),
         onStderr: (line) => lines.push(`stderr:${line}`),
       }),
@@ -153,29 +153,29 @@ describe('LimaCli', () => {
     expect(lines).toContain('stdout:out')
     expect(lines).toContain('stderr:err')
     await expect(readFile(logPath, 'utf8')).resolves.toContain(
-      `ARGS:-F ${sshConfig} lima-browseros-vm 'nerdctl' 'ps'`,
+      `ARGS:-F ${sshConfig} lima-pannamos-vm 'nerdctl' 'ps'`,
     )
   })
 
   it('shell-quotes remote commands to preserve argument boundaries', async () => {
     const sshPath = await fakeSsh({}, logPath)
-    const sshConfig = join(limaHome, 'browseros-vm', 'ssh.config')
-    await mkdir(join(limaHome, 'browseros-vm'), { recursive: true })
+    const sshConfig = join(limaHome, 'pannamos-vm', 'ssh.config')
+    await mkdir(join(limaHome, 'pannamos-vm'), { recursive: true })
     await writeFile(sshConfig, '')
     const cli = new LimaCli({ limactlPath: 'unused', limaHome, sshPath })
 
     await expect(
-      cli.shell('browseros-vm', ['sh', '-lc', "echo 'boundary ok'"]),
+      cli.shell('pannamos-vm', ['sh', '-lc', "echo 'boundary ok'"]),
     ).resolves.toBe(0)
 
     await expect(readFile(logPath, 'utf8')).resolves.toContain(
-      `ARGS:-F ${sshConfig} lima-browseros-vm 'sh' '-lc' 'echo '\\''boundary ok'\\'''`,
+      `ARGS:-F ${sshConfig} lima-pannamos-vm 'sh' '-lc' 'echo '\\''boundary ok'\\'''`,
     )
   })
 
   it('ignores shell stderr when no stderr stream handler is provided', async () => {
-    const sshConfig = join(limaHome, 'browseros-vm', 'ssh.config')
-    await mkdir(join(limaHome, 'browseros-vm'), { recursive: true })
+    const sshConfig = join(limaHome, 'pannamos-vm', 'ssh.config')
+    await mkdir(join(limaHome, 'pannamos-vm'), { recursive: true })
     await writeFile(sshConfig, '')
     const spawn = spyOn(Bun, 'spawn')
     spawn.mockImplementation(
@@ -189,13 +189,13 @@ describe('LimaCli', () => {
     const cli = new LimaCli({ limactlPath: 'limactl', limaHome })
 
     await expect(
-      cli.shell('browseros-vm', ['true'], {
+      cli.shell('pannamos-vm', ['true'], {
         onStdout: () => {},
       }),
     ).resolves.toBe(0)
 
     expect(spawn).toHaveBeenCalledWith(
-      ['ssh', '-F', sshConfig, 'lima-browseros-vm', "'true'"],
+      ['ssh', '-F', sshConfig, 'lima-pannamos-vm', "'true'"],
       expect.objectContaining({
         stdout: 'pipe',
         stderr: 'ignore',
@@ -205,7 +205,7 @@ describe('LimaCli', () => {
 
   it('throws VmNotReadyError when ssh.config is missing', async () => {
     const cli = new LimaCli({ limactlPath: 'limactl', limaHome })
-    const error = await cli.shell('browseros-vm', ['true']).catch((err) => err)
+    const error = await cli.shell('pannamos-vm', ['true']).catch((err) => err)
     expect(error).toBeInstanceOf(VmNotReadyError)
   })
 })

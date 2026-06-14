@@ -1,9 +1,26 @@
 import type { ChatMode } from '@/entrypoints/sidepanel/index/chatTypes'
+import type { ServerAttachmentPayload } from '@/lib/attachments'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 
 export interface ChatHistoryEntry {
   role: 'user' | 'assistant'
   content: string
+}
+
+export interface ChatApprovalResponse {
+  id: string
+  approved: boolean
+  reason?: string
+}
+
+export interface ChatApprovalPolicy {
+  mode: 'supervised' | 'full_browser'
+  scope: 'goal_run'
+}
+
+export interface ChatAgentStrategy {
+  mode: 'auto' | 'single' | 'parallel'
+  maxWorkers?: number
 }
 
 export interface ChatRequestBrowserContext {
@@ -41,6 +58,10 @@ interface ChatRequestBodyParams {
     url: string
     title: string
   }
+  approvalResponses?: ChatApprovalResponse[]
+  approvalPolicy?: ChatApprovalPolicy
+  agentStrategy?: ChatAgentStrategy
+  attachments?: ServerAttachmentPayload[]
   isScheduledTask?: boolean
 }
 
@@ -57,6 +78,10 @@ export const buildChatRequestBody = ({
   declinedApps,
   selectedText,
   selectedTextSource,
+  approvalResponses,
+  approvalPolicy,
+  agentStrategy,
+  attachments,
   isScheduledTask,
 }: ChatRequestBodyParams) => ({
   message,
@@ -85,5 +110,9 @@ export const buildChatRequestBody = ({
   declinedApps: declinedApps?.length ? declinedApps : undefined,
   selectedText,
   selectedTextSource,
+  ...(approvalResponses?.length ? { approvalResponses } : {}),
+  approvalPolicy,
+  agentStrategy,
+  attachments: attachments?.length ? attachments : undefined,
   isScheduledTask,
 })

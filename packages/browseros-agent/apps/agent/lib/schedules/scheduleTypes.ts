@@ -1,7 +1,10 @@
+import type { ChatMode } from '@/entrypoints/sidepanel/index/chatTypes'
+
 export interface ScheduledJob {
   id: string
   name: string
   query: string
+  mode?: ChatMode
   scheduleType: 'daily' | 'hourly' | 'minutes'
   scheduleTime?: string
   scheduleInterval?: number

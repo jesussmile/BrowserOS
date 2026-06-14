@@ -6,6 +6,7 @@ import {
   BREADCRUMB_SCHEDULE_DISMISSED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
+import { normalizeChatMode } from './chatTypes'
 import type { NudgeData } from './getMessageSegments'
 
 interface ScheduleSuggestionCardProps {
@@ -23,6 +24,7 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
   const scheduleType = (data.scheduleType as string) ?? 'daily'
   const scheduleTime = (data.scheduleTime as string) ?? '09:00'
   const query = (data.query as string) ?? ''
+  const mode = normalizeChatMode(data.mode as string | undefined)
 
   useEffect(() => {
     if (!isLastMessage) {
@@ -51,6 +53,7 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
     const params = new URLSearchParams({
       name: suggestedName,
       query,
+      mode,
       scheduleType,
       scheduleTime,
       openDialog: 'true',

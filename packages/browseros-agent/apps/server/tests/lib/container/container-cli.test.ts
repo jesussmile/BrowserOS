@@ -12,6 +12,7 @@ import {
   rm,
   writeFile,
 } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ContainerCli } from '../../../src/lib/container/container-cli'
 import {
@@ -25,7 +26,7 @@ describe('ContainerCli', () => {
   let logPath: string
 
   beforeEach(async () => {
-    tempDir = await mkdtemp('/tmp/container-cli-')
+    tempDir = await mkdtemp(join(tmpdir(), 'container-cli-'))
     logPath = join(tempDir, 'ssh.log')
   })
 
@@ -162,14 +163,14 @@ describe('ContainerCli', () => {
     ])
 
     const log = await readFile(logPath, 'utf8')
-    expect(log).toContain("lima-browseros-vm 'nerdctl' 'start' 'gateway'")
-    expect(log).toContain("lima-browseros-vm 'nerdctl' 'stop' 'gateway'")
-    expect(log).toContain("lima-browseros-vm 'nerdctl' 'rm' '-f' 'gateway'")
+    expect(log).toContain("lima-pannamos-vm 'nerdctl' 'start' 'gateway'")
+    expect(log).toContain("lima-pannamos-vm 'nerdctl' 'stop' 'gateway'")
+    expect(log).toContain("lima-pannamos-vm 'nerdctl' 'rm' '-f' 'gateway'")
     expect(log).toContain(
-      "lima-browseros-vm 'nerdctl' 'exec' 'gateway' 'node' '--version'",
+      "lima-pannamos-vm 'nerdctl' 'exec' 'gateway' 'node' '--version'",
     )
     expect(log).toContain(
-      "lima-browseros-vm 'nerdctl' 'ps' '--format' '{{.Names}}'",
+      "lima-pannamos-vm 'nerdctl' 'ps' '--format' '{{.Names}}'",
     )
   })
 
@@ -196,7 +197,7 @@ describe('ContainerCli', () => {
     })
 
     await expect(readFile(logPath, 'utf8')).resolves.toContain(
-      "lima-browseros-vm 'nerdctl' 'container' 'inspect' '--format' '{{json .}}' 'gateway'",
+      "lima-pannamos-vm 'nerdctl' 'container' 'inspect' '--format' '{{json .}}' 'gateway'",
     )
   })
 
@@ -294,28 +295,32 @@ async function createCli(
   tempDir: string,
 ): Promise<ContainerCli> {
   const configPath = sshConfigPath(tempDir)
-  await mkdir(join(tempDir, 'lima', 'browseros-vm'), { recursive: true })
+  await mkdir(join(tempDir, 'lima', 'pannamos-vm'), { recursive: true })
   await writeFile(configPath, '')
   return new ContainerCli({
     limactlPath: 'unused',
     limaHome: join(tempDir, 'lima'),
     sshPath,
-    vmName: 'browseros-vm',
+    vmName: 'pannamos-vm',
   })
 }
 
 function sshConfigPath(tempDir: string): string {
-  return join(tempDir, 'lima', 'browseros-vm', 'ssh.config')
+  return join(tempDir, 'lima', 'pannamos-vm', 'ssh.config')
 }
 
 function sshPrefix(configPath: string): string {
-  return `ARGS:-F ${configPath} lima-browseros-vm`
+  return `ARGS:-F ${configPath} lima-pannamos-vm`
 }
 
 async function fakeSshContainerExistsThenMissing(
   tempDir: string,
   logPath: string,
 ): Promise<string> {
+  if (process.platform === 'win32') {
+    return fakeSshContainerExistsThenMissingForWindows(tempDir, logPath)
+  }
+
   const path = join(tempDir, 'ssh-container-exists-then-missing')
   const counterPath = join(tempDir, 'ssh-container-exists-then-missing.count')
   const body = `#!/usr/bin/env bash
@@ -337,5 +342,37 @@ esac
 `
   await writeFile(path, body)
   await chmod(path, 0o755)
+  return path
+}
+
+async function fakeSshContainerExistsThenMissingForWindows(
+  tempDir: string,
+  logPath: string,
+): Promise<string> {
+  const path = join(tempDir, 'ssh-container-exists-then-missing.cmd')
+  const scriptPath = join(tempDir, 'ssh-container-exists-then-missing.mjs')
+  const counterPath = join(tempDir, 'ssh-container-exists-then-missing.count')
+  const script = `import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
+
+const logPath = ${JSON.stringify(logPath)}
+const counterPath = ${JSON.stringify(counterPath)}
+const args = process.argv.slice(2)
+const count = existsSync(counterPath)
+  ? Number(readFileSync(counterPath, 'utf8') || '0')
+  : 0
+
+appendFileSync(logPath, 'ARGS:' + args.join(' ') + '\\n')
+writeFileSync(counterPath, String(count + 1))
+
+if (count === 0) {
+  process.stdout.write('{"ID":"abc123","Name":"gateway","Config":{"Image":"browseros-agent:v1"},"State":{"Status":"exited","Running":false}}')
+  process.exit(0)
+}
+
+console.error('no such container')
+process.exit(1)
+`
+  await writeFile(scriptPath, script)
+  await writeFile(path, `@"${process.execPath}" "${scriptPath}" %*\r\n`)
   return path
 }

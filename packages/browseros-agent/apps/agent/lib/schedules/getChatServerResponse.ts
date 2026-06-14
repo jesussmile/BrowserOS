@@ -2,12 +2,12 @@ import { createParser, type EventSourceMessage } from 'eventsource-parser'
 import type { ChatMode } from '@/entrypoints/sidepanel/index/chatTypes'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import {
-  createDefaultBrowserOSProvider,
+  createDefaultPannamOSProvider,
   defaultProviderIdStorage,
   providersStorage,
 } from '@/lib/llm-providers/storage'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
-import { mcpServerStorage } from '@/lib/mcp/mcpServerStorage'
+import { isLiveMcpServer, mcpServerStorage } from '@/lib/mcp/mcpServerStorage'
 import { buildChatRequestBody } from '@/lib/messaging/server/buildChatRequestBody'
 import { personalizationStorage } from '../personalization/personalizationStorage'
 import { scheduleSystemPrompt } from './scheduleSystemPrompt'
@@ -44,6 +44,8 @@ interface ParsedStreamResult {
   toolCalls: ToolCallExecution[]
   error: string | null
 }
+
+const SCHEDULED_TASK_DEFAULT_MODE: ChatMode = 'goal'
 
 type UIMessageEvent =
   | { type: 'text-delta'; id: string; delta: string }
@@ -86,7 +88,7 @@ const resolveProvider = async (
     const match = providers?.find((p) => p.id === providerId)
     if (match) return match
   }
-  return (await getDefaultProvider()) ?? createDefaultBrowserOSProvider()
+  return (await getDefaultProvider()) ?? createDefaultPannamOSProvider()
 }
 
 export async function getChatServerResponse(
@@ -98,14 +100,9 @@ export async function getChatServerResponse(
   const personalization = await personalizationStorage.getValue()
 
   const mcpServers = (await mcpServerStorage.getValue()) ?? []
-  const enabledMcpServers = mcpServers
-    .filter((s) => s.type === 'managed')
-    .map((s) => s.managedServerName)
-    .filter((name): name is string => !!name)
   const customMcpServers = mcpServers
-    .filter((s) => s.type === 'custom' && !!s.config?.url)
-    // biome-ignore lint/style/noNonNullAssertion: filter guarantees url exists
-    .map((s) => ({ name: s.displayName, url: s.config!.url }))
+    .filter(isLiveMcpServer)
+    .map((s) => ({ name: s.displayName, url: s.config.url }))
 
   const response = await fetch(`${agentServerUrl}/chat`, {
     method: 'POST',
@@ -119,17 +116,12 @@ export async function getChatServerResponse(
         message: request.message,
         conversationId,
         provider,
-        mode: request.mode ?? 'agent',
+        mode: request.mode ?? SCHEDULED_TASK_DEFAULT_MODE,
         browserContext:
-          request.activeTab ||
-          request.windowId ||
-          enabledMcpServers.length ||
-          customMcpServers.length
+          request.activeTab || request.windowId || customMcpServers.length
             ? {
                 windowId: request.windowId,
                 activeTab: request.activeTab,
-                enabledMcpServers:
-                  enabledMcpServers.length > 0 ? enabledMcpServers : undefined,
                 customMcpServers:
                   customMcpServers.length > 0 ? customMcpServers : undefined,
               }

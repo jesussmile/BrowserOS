@@ -16,13 +16,13 @@ const timestamp = 1000
 
 const providers: LlmProviderConfig[] = [
   {
-    id: 'browseros',
-    type: 'browseros',
-    name: 'BrowserOS',
-    baseUrl: 'https://api.browseros.com/v1',
-    modelId: 'browseros-auto',
+    id: 'chatgpt-pro',
+    type: 'chatgpt-pro',
+    name: 'ChatGPT Plus/Pro',
+    baseUrl: 'https://chatgpt.com/backend-api',
+    modelId: 'gpt-5.5',
     supportsImages: true,
-    contextWindow: 200000,
+    contextWindow: 400000,
     temperature: 0.2,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -87,7 +87,7 @@ describe('buildSidepanelChatTargets', () => {
     const targets = buildSidepanelChatTargets({ providers, adapters, agents })
 
     expect(targets.map((target) => target.id)).toEqual([
-      'browseros',
+      'chatgpt-pro',
       'anthropic-sonnet',
       'agent-codex',
     ])
@@ -101,7 +101,7 @@ describe('buildSidepanelChatTargets', () => {
     })
 
     expect(targets.map((target) => target.id)).toEqual([
-      'browseros',
+      'chatgpt-pro',
       'anthropic-sonnet',
     ])
   })
@@ -130,9 +130,9 @@ describe('buildSidepanelChatTargets', () => {
     ).toEqual([
       {
         kind: 'llm',
-        id: 'browseros',
-        name: 'BrowserOS',
-        type: 'browseros',
+        id: 'chatgpt-pro',
+        name: 'ChatGPT Plus/Pro',
+        type: 'chatgpt-pro',
         provider: providers[0],
       },
       {
@@ -151,7 +151,7 @@ describe('resolveSidepanelChatTarget', () => {
     const targets = buildSidepanelChatTargets({ providers, adapters, agents })
     const resolved = resolveSidepanelChatTarget({
       targets,
-      defaultProviderId: 'browseros',
+      defaultProviderId: 'chatgpt-pro',
       selection: { kind: 'llm', id: 'anthropic-sonnet' },
     })
 

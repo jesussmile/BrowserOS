@@ -10,12 +10,13 @@ import (
 )
 
 const (
-	DefaultManifestURL     = "https://cdn.browseros.com/cli/latest/manifest.json"
+	DefaultManifestURL     = ""
 	DefaultCheckTTL        = 24 * time.Hour
 	DefaultHTTPTimeout     = 2 * time.Second
 	DefaultDownloadTimeout = 5 * time.Minute
 	SkipCheckEnv           = "BROWSEROS_SKIP_UPDATE_CHECK"
 	InstallMethodEnv       = "BROWSEROS_INSTALL_METHOD"
+	ManifestURLEnv         = "BROWSEROS_CLI_UPDATE_MANIFEST_URL"
 )
 
 type Options struct {
@@ -47,7 +48,7 @@ type CheckResult struct {
 
 func NewManager(options Options) *Manager {
 	if options.ManifestURL == "" {
-		options.ManifestURL = DefaultManifestURL
+		options.ManifestURL = os.Getenv(ManifestURLEnv)
 	}
 	if options.CheckTTL == 0 {
 		options.CheckTTL = DefaultCheckTTL
@@ -93,6 +94,9 @@ func (m *Manager) AutomaticEnabled() bool {
 	if !m.options.Automatic || m.options.JSONOutput {
 		return false
 	}
+	if m.options.ManifestURL == "" {
+		return false
+	}
 	if os.Getenv(SkipCheckEnv) != "" {
 		return false
 	}
@@ -136,6 +140,9 @@ func (m *Manager) StartBackgroundCheck(ctx context.Context) <-chan struct{} {
 func (m *Manager) CheckNow(ctx context.Context) (*CheckResult, error) {
 	if !IsReleaseVersion(m.options.CurrentVersion) {
 		return nil, fmt.Errorf("self-update is unavailable for non-release build %q", m.options.CurrentVersion)
+	}
+	if m.options.ManifestURL == "" {
+		return nil, fmt.Errorf("self-update is disabled for private builds; set %s to an internal manifest URL", ManifestURLEnv)
 	}
 
 	checkCtx, cancel := context.WithTimeout(ctx, m.options.HTTPTimeout)

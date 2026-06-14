@@ -1,8 +1,20 @@
 import type { useCombobox } from 'downshift'
-import { Search, Sparkles } from 'lucide-react'
+import {
+  Bot,
+  type LucideIcon,
+  MessageSquare,
+  MousePointer2,
+  Repeat2,
+  Search,
+  Sparkles,
+} from 'lucide-react'
 import { motion } from 'motion/react'
 import type { FC } from 'react'
 import { cn } from '@/lib/utils'
+import {
+  CHAT_MODE_DETAILS,
+  type ChatMode,
+} from '../../sidepanel/index/chatTypes'
 import type { SuggestionItem, SuggestionSection } from './lib/suggestions/types'
 
 type GetMenuProps = ReturnType<typeof useCombobox>['getMenuProps']
@@ -21,6 +33,14 @@ const SectionTitle: FC<{ title: string }> = ({ title }) =>
       {title}
     </div>
   ) : null
+
+const browserOSModeIcons: Record<ChatMode, LucideIcon> = {
+  agent: Bot,
+  chat: MessageSquare,
+  research: Search,
+  workflow: Repeat2,
+  goal: MousePointer2,
+}
 
 const SuggestionItemRenderer: FC<{
   item: SuggestionItem
@@ -63,11 +83,13 @@ const SuggestionItemRenderer: FC<{
         </li>
       )
 
-    case 'browseros':
+    case 'browseros': {
+      const details = CHAT_MODE_DETAILS[item.mode]
+      const ModeIcon = browserOSModeIcons[item.mode] ?? Sparkles
       return (
         <li className={baseClassName} {...getItemProps({ item, index })}>
-          <Sparkles className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span className="flex-shrink-0 font-semibold">Ask BrowserOS:</span>
+          <ModeIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="flex-shrink-0 font-semibold">{details.label}:</span>
           <span
             className="min-w-0 flex-1 truncate"
             title={item.message || 'Type a message...'}
@@ -76,6 +98,7 @@ const SuggestionItemRenderer: FC<{
           </span>
         </li>
       )
+    }
   }
 }
 

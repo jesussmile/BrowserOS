@@ -40,6 +40,74 @@ describe('createAgentRoutes', () => {
     })
   })
 
+  it('accepts local role templates when creating harness agents', async () => {
+    const service = createFakeService([])
+    const route = new Hono().route('/agents', createAgentRoutes({ service }))
+
+    const created = await route.request('/agents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Chief of Staff',
+        adapter: 'codex',
+        modelId: 'gpt-5.5',
+        reasoningEffort: 'medium',
+        roleId: 'chief-of-staff',
+      }),
+    })
+
+    expect(created.status).toBe(200)
+    expect(service._lastCreateAgentInput).toMatchObject({
+      name: 'Chief of Staff',
+      adapter: 'codex',
+      roleId: 'chief-of-staff',
+    })
+
+    const invalid = await route.request('/agents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Invalid role',
+        adapter: 'codex',
+        roleId: 'browseros-cloud-role',
+      }),
+    })
+    expect(invalid.status).toBe(400)
+    expect(await invalid.json()).toEqual({ error: 'Invalid roleId' })
+
+    const custom = await route.request('/agents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Research ops',
+        adapter: 'codex',
+        customRole: {
+          name: 'Research Ops',
+          shortDescription: 'Research and source comparison.',
+          longDescription: 'Runs local research briefs with source tracking.',
+          recommendedApps: ['browser'],
+          boundaries: [
+            {
+              key: 'external-submit',
+              label: 'External submit',
+              description: 'Ask before sending data to an external service.',
+              defaultMode: 'ask',
+            },
+          ],
+        },
+      }),
+    })
+    expect(custom.status).toBe(200)
+    expect(service._lastCreateAgentInput).toMatchObject({
+      name: 'Research ops',
+      adapter: 'codex',
+      customRole: {
+        name: 'Research Ops',
+        shortDescription: 'Research and source comparison.',
+      },
+    })
+  })
+
   it('streams chat for an agent main session', async () => {
     const route = createMountedRoutes([
       {
@@ -96,6 +164,58 @@ describe('createAgentRoutes', () => {
       agentId: 'agent-1',
       cwd: '/tmp/workspace',
     })
+  })
+
+  it('inlines generic agent chat file attachments and keeps images as ACP image blocks', async () => {
+    const agent: AgentDefinition = {
+      id: 'agent-1',
+      name: 'Review bot',
+      adapter: 'codex',
+      modelId: 'gpt-5.5',
+      reasoningEffort: 'medium',
+      permissionMode: 'approve-all',
+      sessionKey: 'agent:agent-1:main',
+      createdAt: 1000,
+      updatedAt: 1000,
+    }
+    const service = createFakeService([agent])
+    const route = new Hono().route('/agents', createAgentRoutes({ service }))
+
+    const response = await route.request('/agents/agent-1/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Review these attachments',
+        attachments: [
+          {
+            kind: 'file',
+            mediaType: 'text/csv',
+            name: 'airports.csv',
+            text: 'ident,name\nKJFK,John F Kennedy',
+          },
+          {
+            kind: 'image',
+            mediaType: 'image/png',
+            dataUrl: 'data:image/png;base64,aW1hZ2U=',
+            name: 'chart.png',
+          },
+        ],
+      }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(service._lastStartTurnInput?.message).toContain(
+      '<attachment name="airports.csv" mediaType="text/csv">',
+    )
+    expect(service._lastStartTurnInput?.message).toContain(
+      'KJFK,John F Kennedy',
+    )
+    expect(service._lastStartTurnInput?.message).toContain(
+      '<USER_QUERY>\nReview these attachments\n</USER_QUERY>',
+    )
+    expect(service._lastStartTurnInput?.attachments).toEqual([
+      { mediaType: 'image/png', data: 'aW1hZ2U=' },
+    ])
   })
 
   it('returns 409 when starting a turn while one is active', async () => {
@@ -291,10 +411,14 @@ describe('createAgentRoutes', () => {
         adapter: 'codex',
         modelId: 'ignored-client-model',
         reasoningEffort: 'ignored-client-effort',
+        mode: 'workflow',
         userSystemPrompt: 'Always be concise.',
         userWorkingDir: '/tmp/work',
         browserContext: {
           activeTab: { id: 1, url: 'https://example.com', title: 'Example' },
+          customMcpServers: [
+            { name: 'Gmail', url: 'http://localhost:8000/sse' },
+          ],
         },
         selectedText: 'selected text',
         selectedTextSource: {
@@ -310,8 +434,13 @@ describe('createAgentRoutes', () => {
     expect(await response.text()).toContain('"type":"text-delta"')
     expect(service._lastStartTurnInput).toMatchObject({
       agentId: 'agent-1',
+      mode: 'workflow',
       cwd: '/tmp/work',
+      customMcpServers: [{ name: 'Gmail', url: 'http://localhost:8000/sse' }],
     })
+    expect(service._lastStartTurnInput?.message).toContain(
+      'local workflow mode',
+    )
     expect(service._lastStartTurnInput?.message).toContain('Always be concise.')
     expect(service._lastStartTurnInput?.message).toContain(
       'Tab 1 (Page ID: 101) - "Example" (https://example.com)',
@@ -367,6 +496,10 @@ describe('createAgentRoutes', () => {
       {
         patch: { selectedTextSource: { url: 123, title: 'Example' } },
         error: 'Invalid selectedTextSource',
+      },
+      {
+        patch: { mode: 'remote-cloud' },
+        error: 'Invalid mode',
       },
     ]) {
       const response = await route.request('/agents/agent-1/sidepanel/chat', {
@@ -586,6 +719,53 @@ describe('createAgentRoutes', () => {
     expect(removeMissing.status).toBe(404)
   })
 
+  it('inlines queued file attachments and preserves queued image blocks', async () => {
+    const agent: AgentDefinition = {
+      id: 'agent-1',
+      name: 'Review bot',
+      adapter: 'codex',
+      modelId: 'gpt-5.5',
+      reasoningEffort: 'medium',
+      permissionMode: 'approve-all',
+      sessionKey: 'agent:agent-1:main',
+      createdAt: 1000,
+      updatedAt: 1000,
+    }
+    const route = createMountedRoutes([agent])
+
+    const enqueue = await route.request('/agents/agent-1/queue', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Process later',
+        attachments: [
+          {
+            kind: 'file',
+            mediaType: 'application/json',
+            name: 'manifest.json',
+            text: '{"ok":true}',
+          },
+          {
+            kind: 'image',
+            mediaType: 'image/webp',
+            dataUrl: 'data:image/webp;base64,d2VicA==',
+            name: 'preview.webp',
+          },
+        ],
+      }),
+    })
+
+    expect(enqueue.status).toBe(200)
+    const body = await enqueue.json()
+    expect(body.queued.message).toContain(
+      '<attachment name="manifest.json" mediaType="application/json">',
+    )
+    expect(body.queued.message).toContain('{"ok":true}')
+    expect(body.queued.attachments).toEqual([
+      { mediaType: 'image/webp', data: 'd2VicA==' },
+    ])
+  })
+
   it('rejects empty queue messages and unknown agents', async () => {
     const route = createMountedRoutes([
       {
@@ -661,8 +841,14 @@ function createFakeService(agents: AgentDefinition[]) {
     { type: 'done', stopReason: 'end_turn' },
   ]
   let lastStartTurnInput:
-    | { agentId: string; message?: string; cwd?: string }
+    | {
+        agentId: string
+        message?: string
+        cwd?: string
+        attachments?: ReadonlyArray<{ mediaType: string; data: string }>
+      }
     | undefined
+  let lastCreateAgentInput: unknown
   const queues = new Map<
     string,
     Array<{
@@ -676,6 +862,9 @@ function createFakeService(agents: AgentDefinition[]) {
   return {
     get _lastStartTurnInput() {
       return lastStartTurnInput
+    },
+    get _lastCreateAgentInput() {
+      return lastCreateAgentInput
     },
     async listAgents() {
       return agents
@@ -694,7 +883,10 @@ function createFakeService(agents: AgentDefinition[]) {
       adapter: 'claude' | 'codex' | 'hermes'
       modelId?: string
       reasoningEffort?: string
+      roleId?: string
+      customRole?: unknown
     }) {
+      lastCreateAgentInput = input
       const agent: AgentDefinition = {
         id: `agent-${agents.length + 1}`,
         name: input.name,
@@ -743,6 +935,9 @@ function createFakeService(agents: AgentDefinition[]) {
     async startTurn(input: {
       agentId: string
       message?: string
+      mode?: 'chat' | 'research' | 'workflow' | 'agent' | 'goal'
+      attachments?: ReadonlyArray<{ mediaType: string; data: string }>
+      customMcpServers?: ReadonlyArray<{ name: string; url: string }>
       cwd?: string
     }) {
       if (!agents.some((agent) => agent.id === input.agentId)) {
@@ -868,7 +1063,11 @@ function createBlockingFakeService(agents: AgentDefinition[]) {
     async getHistory(agentId: string) {
       return { agentId, sessionId: 'main' as const, items: [] }
     },
-    async startTurn(input: { agentId: string }) {
+    async startTurn(input: {
+      agentId: string
+      mode?: 'chat' | 'research' | 'workflow' | 'agent' | 'goal'
+      customMcpServers?: ReadonlyArray<{ name: string; url: string }>
+    }) {
       const existing = registry.getActiveFor(input.agentId, 'main')
       if (existing) {
         const { TurnAlreadyActiveError } = await import(

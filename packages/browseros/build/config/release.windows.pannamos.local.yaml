@@ -1,0 +1,45 @@
+# PannamOS Windows local installer build configuration
+#
+# Purpose:
+# - Build an unsigned, manually distributed PannamOS Windows installer.
+# - Keep this private build side-by-side with official BrowserOS.
+# - Avoid BrowserOS signing/upload/update infrastructure for milestone 1.
+#
+# Usage:
+#   browseros build --config build/config/release.windows.pannamos.local.yaml --chromium-src <path-to-chromium-src>
+
+build:
+  type: release
+  architecture: x64
+
+gn_flags:
+  file: build/config/gn/flags.windows.release.gn
+
+modules:
+  # Phase 1: Setup
+  - clean
+  - git_setup
+
+  # Phase 2: Patches & Resources
+  - pannamos_server_resources
+  - resources
+  - chromium_replace
+  - string_replaces
+  - series_patches
+  - patches
+  - pannamos_agent_extension
+
+  # Phase 3: Configure and build browser plus installer targets
+  - configure
+  - compile
+  - compile_windows_installer
+
+  # Phase 4: Package unsigned local installer
+  - package_windows
+
+required_envs:
+  - PANNAMOS_AGENT_CRX
+  - PANNAMOS_AGENT_EXTENSION_ID
+
+notifications:
+  slack: false

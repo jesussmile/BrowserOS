@@ -25,7 +25,17 @@ export const ALLOWED_IMAGE_MEDIA_TYPES = [
 export const ALLOWED_FILE_MEDIA_TYPE_PREFIXES = [
   'text/',
   'application/json',
+  'application/pdf',
 ] as const
+
+const EXTENSION_MEDIA_TYPES: Record<string, string> = {
+  csv: 'text/csv',
+  json: 'application/json',
+  md: 'text/markdown',
+  markdown: 'text/markdown',
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+}
 
 export type ServerImageAttachment = {
   kind: 'image'
@@ -79,6 +89,14 @@ function isAllowedFileMediaType(mediaType: string): boolean {
   )
 }
 
+function inferMediaType(file: File): string {
+  if (file.type) return file.type
+  const extension = file.name.split('.').pop()?.toLowerCase()
+  return extension
+    ? (EXTENSION_MEDIA_TYPES[extension] ?? 'application/octet-stream')
+    : 'application/octet-stream'
+}
+
 /** Build a unique id without depending on `crypto.randomUUID` outside DOM. */
 function makeId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -94,7 +112,7 @@ function makeId(): string {
 export async function stageAttachment(
   file: File,
 ): Promise<StageAttachmentResult> {
-  const mediaType = file.type || 'application/octet-stream'
+  const mediaType = inferMediaType(file)
 
   if (isImageMediaType(mediaType)) {
     try {
@@ -147,7 +165,10 @@ export async function stageAttachment(
   if (isAllowedFileMediaType(mediaType)) {
     let text: string
     try {
-      text = await file.text()
+      text =
+        mediaType === 'application/pdf'
+          ? await extractPdfText(file)
+          : await file.text()
     } catch (err) {
       return {
         ok: false,
@@ -361,6 +382,138 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
     )
   }
   return btoa(binary)
+}
+
+async function extractPdfText(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer()
+  const source = decodeBytesAsLatin1(new Uint8Array(buffer))
+  const strings = [
+    ...extractPdfLiteralStrings(source),
+    ...extractPdfHexStrings(source),
+  ]
+    .map(normalizePdfText)
+    .filter((text) => text.length > 0)
+
+  if (strings.length === 0) {
+    return `[PDF attachment: ${file.name || 'attachment.pdf'}]\nNo extractable text was found in this PDF.`
+  }
+
+  return strings.join('\n').slice(0, MAX_FILE_TEXT_BYTES)
+}
+
+function decodeBytesAsLatin1(bytes: Uint8Array): string {
+  let text = ''
+  const chunkSize = 0x8000
+  for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+    text += String.fromCharCode.apply(
+      null,
+      Array.from(bytes.subarray(i, Math.min(i + chunkSize, bytes.byteLength))),
+    )
+  }
+  return text
+}
+
+function extractPdfLiteralStrings(source: string): string[] {
+  const strings: string[] = []
+  let i = 0
+  while (i < source.length) {
+    if (source[i] !== '(') {
+      i += 1
+      continue
+    }
+    i += 1
+    let depth = 1
+    let value = ''
+    while (i < source.length && depth > 0) {
+      const char = source[i]
+      if (char === '\\') {
+        const next = source[i + 1]
+        if (next) value += unescapePdfChar(next)
+        i += 2
+        continue
+      }
+      if (char === '(') {
+        depth += 1
+        value += char
+        i += 1
+        continue
+      }
+      if (char === ')') {
+        depth -= 1
+        if (depth > 0) value += char
+        i += 1
+        continue
+      }
+      value += char
+      i += 1
+    }
+    strings.push(value)
+  }
+  return strings
+}
+
+function extractPdfHexStrings(source: string): string[] {
+  const strings: string[] = []
+  const matches = source.matchAll(/<([0-9a-fA-F\s]{8,})>/g)
+  for (const match of matches) {
+    const hex = match[1]?.replace(/\s+/g, '')
+    if (!hex || hex.length % 2 !== 0) continue
+    const bytes = new Uint8Array(hex.length / 2)
+    for (let i = 0; i < hex.length; i += 2) {
+      bytes[i / 2] = Number.parseInt(hex.slice(i, i + 2), 16)
+    }
+    strings.push(decodeBytesAsLatin1(bytes))
+  }
+  return strings
+}
+
+function unescapePdfChar(char: string): string {
+  switch (char) {
+    case 'n':
+      return '\n'
+    case 'r':
+      return '\r'
+    case 't':
+      return '\t'
+    case 'b':
+      return '\b'
+    case 'f':
+      return '\f'
+    default:
+      return char
+  }
+}
+
+function replacePdfControlChars(text: string): string {
+  let normalized = ''
+  let replacedControlRun = false
+
+  for (const char of text) {
+    const code = char.charCodeAt(0)
+    const isPdfControlChar =
+      code <= 0x08 ||
+      code === 0x0b ||
+      code === 0x0c ||
+      (code >= 0x0e && code <= 0x1f)
+
+    if (isPdfControlChar) {
+      if (!replacedControlRun) normalized += ' '
+      replacedControlRun = true
+      continue
+    }
+
+    normalized += char
+    replacedControlRun = false
+  }
+
+  return normalized
+}
+
+function normalizePdfText(text: string): string {
+  return replacePdfControlChars(text.replace(/\r/g, '\n'))
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 function humanBytes(bytes: number): string {

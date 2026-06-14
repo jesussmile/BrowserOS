@@ -17,6 +17,7 @@ import {
   useCreateHarnessAgent,
   useDeleteHarnessAgent,
   useHarnessAgents,
+  useLocalAgentCapabilities,
   useUpdateHarnessAgent,
 } from '@/entrypoints/app/agents/useAgents'
 import {
@@ -40,6 +41,7 @@ export const AdapterAgentsPane: FC<AdapterAgentsPaneProps> = ({
   adapterId,
 }) => {
   const { adapters } = useAgentAdapters()
+  const { capabilities: localCapabilities } = useLocalAgentCapabilities()
   const { harnessAgents, loading } = useHarnessAgents()
   const createHarnessAgent = useCreateHarnessAgent()
   const deleteHarnessAgent = useDeleteHarnessAgent()
@@ -57,6 +59,7 @@ export const AdapterAgentsPane: FC<AdapterAgentsPaneProps> = ({
   const [newName, setNewName] = useState('')
   const [modelId, setModelId] = useState('')
   const [reasoningEffort, setReasoningEffort] = useState('')
+  const [roleId, setRoleId] = useState('none')
   const [createError, setCreateError] = useState<string | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
   const [deletingAgentKey, setDeletingAgentKey] = useState<string | null>(null)
@@ -105,6 +108,7 @@ export const AdapterAgentsPane: FC<AdapterAgentsPaneProps> = ({
         adapter: adapterId,
         modelId: modelId || undefined,
         reasoningEffort: reasoningEffort || undefined,
+        roleId: roleId !== 'none' ? roleId : undefined,
       })
       track(AGENT_CREATED_EVENT, {
         runtime: adapterId,
@@ -113,6 +117,7 @@ export const AdapterAgentsPane: FC<AdapterAgentsPaneProps> = ({
       })
       setCreateOpen(false)
       setNewName('')
+      setRoleId('none')
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : String(err))
     }
@@ -205,11 +210,14 @@ export const AdapterAgentsPane: FC<AdapterAgentsPaneProps> = ({
         hermesSelectedProviderId=""
         name={newName}
         open={createOpen}
+        roleTemplates={localCapabilities?.roles ?? []}
+        selectedRoleId={roleId}
         onCreate={handleCreate}
         onOpenChange={(open) => {
           setCreateOpen(open)
           if (!open) {
             setCreateError(null)
+            setRoleId('none')
             createHarnessAgent.reset()
           }
         }}
@@ -219,6 +227,15 @@ export const AdapterAgentsPane: FC<AdapterAgentsPaneProps> = ({
         onHarnessReasoningChange={setReasoningEffort}
         onHermesProviderChange={() => {}}
         onNameChange={setNewName}
+        onRoleChange={(nextRoleId) => {
+          setRoleId(nextRoleId)
+          const role = localCapabilities?.roles.find(
+            (entry) => entry.id === nextRoleId,
+          )
+          if (role && (!newName.trim() || newName === 'agent')) {
+            setNewName(role.defaultAgentName)
+          }
+        }}
       />
     </div>
   )

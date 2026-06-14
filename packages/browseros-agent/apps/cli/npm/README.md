@@ -16,17 +16,17 @@ npx browseros-cli --help
 npm install -g browseros-cli
 ```
 
-**Shell script fallback:**
+**Private shell script fallback:**
 
 ```bash
-curl -fsSL https://cdn.browseros.com/cli/install.sh | bash
+BROWSEROS_CLI_DOWNLOAD_BASE="https://internal.example/cli" ./scripts/install.sh
 ```
 
 ## Quick Start
 
 ```bash
-# Download BrowserOS
-browseros-cli install
+# Install BrowserOS from your internal private package URL
+BROWSEROS_PRIVATE_DOWNLOAD_URL="https://internal.example/BrowserOS_installer.exe" browseros-cli install
 
 # Start BrowserOS
 browseros-cli launch
@@ -74,7 +74,8 @@ browseros-cli agent "Search for flights to Tokyo"
 
 ## Documentation
 
-Full documentation is available at [browseros.com](https://browseros.com).
+Use the private fork runbook in this repository. Private builds do not use the
+official BrowserOS CDN, update manifest, or hosted docs as runtime defaults.
 
 ## License
 

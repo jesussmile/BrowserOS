@@ -22,7 +22,7 @@
     "url": "https://github.com/browseros-ai/BrowserOS",
     "directory": "packages/browseros-agent/apps/cli/npm"
   },
-  "homepage": "https://browseros.com",
+  "homepage": "https://github.com/browseros-ai/BrowserOS#readme",
   "bugs": "https://github.com/browseros-ai/BrowserOS/issues",
   "license": "MIT",
   "os": [

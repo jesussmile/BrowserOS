@@ -26,14 +26,14 @@ async function readCurrentPort(): Promise<number> {
   try {
     return await getProxyPort()
   } catch {
-    // Pref unset or BrowserOS API unavailable — fall back to the default port
+    // Pref unset or local browser API unavailable — fall back to the default port
     return PROXY_PORT_MIN
   }
 }
 
 /**
  * Pencil-triggered popover for editing the MCP proxy port (the port external
- * clients connect to). Writing the proxy_port pref makes BrowserOS rebind the
+ * clients connect to). Writing the proxy_port pref makes PannamOS rebind the
  * proxy and restart the server, so saving polls health before reporting back.
  * Renders nothing on builds without proxy support, where the URL is driven by
  * a different, non-editable port.

@@ -910,7 +910,7 @@ index 0000000000000..eb1bd8fd5766d
 +  if (!base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir)) {
 +    return base::FilePath();
 +  }
-+  return user_data_dir.Append(FILE_PATH_LITERAL(".browseros"));
++  return user_data_dir.Append(FILE_PATH_LITERAL(".pannamos"));
 +}
 +
 +base::FilePath BrowserOSServerUpdater::GetVersionsDir() const {

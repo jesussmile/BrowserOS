@@ -22,7 +22,7 @@ import { useGetMCPServersList } from '@/entrypoints/app/connect-mcp/useGetMCPSer
 import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetUserMCPIntegrations'
 import { useSubmitApiKey } from '@/entrypoints/app/connect-mcp/useSubmitApiKey'
 import { MANAGED_MCP_ADDED_EVENT } from '@/lib/constants/analyticsEvents'
-import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import { isLiveMcpServer, useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { useSyncRemoteIntegrations } from '@/lib/mcp/useSyncRemoteIntegrations'
 import { track } from '@/lib/metrics/track'
 import { sentry } from '@/lib/sentry/sentry'
@@ -59,10 +59,7 @@ export const AppSelector: FC<AppSelectorProps> = ({
 
   const connectedServers = createdServers.filter((s) => {
     if (s.type !== 'managed' || !s.managedServerName) return false
-    const integration = userMCPIntegrations?.integrations?.find(
-      (i) => i.name === s.managedServerName,
-    )
-    return integration?.is_authenticated === true
+    return isLiveMcpServer(s)
   })
 
   const unauthenticatedServers = createdServers.filter((s) => {
@@ -71,7 +68,20 @@ export const AppSelector: FC<AppSelectorProps> = ({
     const integration = userMCPIntegrations?.integrations?.find(
       (i) => i.name === s.managedServerName,
     )
-    return !integration?.is_authenticated
+    return (
+      !integration?.is_authenticated &&
+      integration?.connection_mode !== 'local_catalog'
+    )
+  })
+
+  const localCatalogServers = createdServers.filter((s) => {
+    if (s.type !== 'managed' || !s.managedServerName) return false
+    if (isLiveMcpServer(s)) return false
+    if (s.connectionMode === 'local_catalog') return true
+    const integration = userMCPIntegrations?.integrations?.find(
+      (i) => i.name === s.managedServerName,
+    )
+    return integration?.connection_mode === 'local_catalog'
   })
 
   const availableServers =
@@ -93,6 +103,12 @@ export const AppSelector: FC<AppSelectorProps> = ({
       s.managedServerDescription?.toLowerCase().includes(query),
   )
 
+  const filteredLocalCatalog = localCatalogServers.filter(
+    (s) =>
+      s.displayName.toLowerCase().includes(query) ||
+      s.managedServerDescription?.toLowerCase().includes(query),
+  )
+
   const filteredAvailable = availableServers.filter(
     (s) =>
       s.name.toLowerCase().includes(query) ||
@@ -102,6 +118,7 @@ export const AppSelector: FC<AppSelectorProps> = ({
   const hasResults =
     filteredConnected.length > 0 ||
     filteredUnauthenticated.length > 0 ||
+    filteredLocalCatalog.length > 0 ||
     filteredAvailable.length > 0
 
   const openAuthUrl = async (serverName: string) => {
@@ -112,7 +129,9 @@ export const AppSelector: FC<AppSelectorProps> = ({
         return
       }
       if (!response.oauthUrl) {
-        toast.error(`Failed to add app: ${serverName}`)
+        toast.info(
+          `${serverName} is saved locally. Open Connected Apps to attach a local MCP connector.`,
+        )
         return
       }
       window.open(response.oauthUrl, '_blank')?.focus()
@@ -131,6 +150,7 @@ export const AppSelector: FC<AppSelectorProps> = ({
         type: 'managed',
         managedServerName: name,
         managedServerDescription: description,
+        connectionMode: response.connectionMode ?? 'local_catalog',
       })
       track(MANAGED_MCP_ADDED_EVENT, { server_name: name })
 
@@ -139,7 +159,8 @@ export const AppSelector: FC<AppSelectorProps> = ({
         return
       }
       if (!response.oauthUrl) {
-        toast.error(`Failed to add app: ${name}`)
+        toast.success(`${name} added to the local app catalog`)
+        setOpen(false)
         return
       }
       window.open(response.oauthUrl, '_blank')?.focus()
@@ -195,7 +216,7 @@ export const AppSelector: FC<AppSelectorProps> = ({
               {filteredConnected.length > 0 && (
                 <CommandGroup>
                   <div className="my-2 px-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-                    Connected
+                    Live local MCP
                   </div>
                   <div className="flex flex-wrap items-center gap-2 px-3 py-2">
                     {filteredConnected.map((server) => (
@@ -252,6 +273,35 @@ export const AppSelector: FC<AppSelectorProps> = ({
                         {server.displayName}
                       </span>
                       <KeyRound className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+
+              {filteredLocalCatalog.length > 0 && (
+                <CommandGroup>
+                  <div className="my-2 px-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+                    Local catalog
+                  </div>
+                  {filteredLocalCatalog.map((server) => (
+                    <CommandItem
+                      key={server.id}
+                      value={`${server.id} ${server.displayName}`}
+                      onSelect={() => {
+                        toast.info(
+                          `${server.displayName} is saved locally. Open Connected Apps to attach a local MCP connector.`,
+                        )
+                      }}
+                      className="flex cursor-pointer items-center gap-3 px-3 py-2"
+                    >
+                      <McpServerIcon
+                        serverName={server.managedServerName ?? ''}
+                        size={18}
+                        className="shrink-0"
+                      />
+                      <span className="flex-1 truncate text-sm">
+                        {server.displayName}
+                      </span>
                     </CommandItem>
                   ))}
                 </CommandGroup>

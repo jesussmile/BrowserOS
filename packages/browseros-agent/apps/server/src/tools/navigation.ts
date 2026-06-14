@@ -1,5 +1,8 @@
 import { z } from 'zod'
+import type { PageInfo } from '../browser/browser'
 import { defineTool } from './framework'
+
+const WORK_PAGE_WARNING_THRESHOLD = 3
 
 const pageParam = z.number().describe('Page ID (from list_pages)')
 const pageInfoSchema = z.object({
@@ -17,6 +20,51 @@ const pageInfoSchema = z.object({
   index: z.number().optional(),
   groupId: z.string().optional(),
 })
+
+function isLikelyBrowserUiPage(page: PageInfo): boolean {
+  const url = page.url.toLowerCase()
+  return (
+    url === 'about:blank' ||
+    url.startsWith('chrome://newtab') ||
+    url.startsWith('chrome://new-tab')
+  )
+}
+
+function isLikelyCrashedPage(page: PageInfo): boolean {
+  const haystack = `${page.title} ${page.url}`.toLowerCase()
+  return (
+    page.url.startsWith('chrome-error://') ||
+    haystack.includes('out of memory') ||
+    haystack.includes('not enough memory') ||
+    haystack.includes('aw, snap')
+  )
+}
+
+function buildMemoryGuardWarning(pages: PageInfo[]): string | null {
+  const workPages = pages.filter((page) => !isLikelyBrowserUiPage(page))
+  const crashedPages = workPages.filter(isLikelyCrashedPage)
+  const visibleWorkPageCount = workPages.filter((page) => !page.isHidden).length
+  const totalWorkPageCount = workPages.length
+  const warnings: string[] = []
+
+  if (crashedPages.length > 0) {
+    const crashedRefs = crashedPages
+      .map((page) => `${page.pageId}: ${page.title || page.url}`)
+      .join(', ')
+    warnings.push(
+      `Crash detected on page(s) ${crashedRefs}. Stop opening new tabs, close nonessential pages, and retry reload once before reporting the blocker.`,
+    )
+  }
+
+  if (visibleWorkPageCount >= WORK_PAGE_WARNING_THRESHOLD) {
+    warnings.push(
+      `${visibleWorkPageCount} visible work tabs are open (${totalWorkPageCount} total work pages including hidden/background pages). Heavy portals, maps, charts, and PDFs can crash a Chromium renderer even when system RAM is available. Prefer reusing a tab with navigate_page or closing temporary tabs with close_page before opening more.`,
+    )
+  }
+
+  if (warnings.length === 0) return null
+  return `Memory guard:\n${warnings.map((warning) => `- ${warning}`).join('\n')}`
+}
 
 export const get_active_page = defineTool({
   name: 'get_active_page',
@@ -57,6 +105,8 @@ export const list_pages = defineTool({
       (p) => `${p.pageId}. ${p.title} (tab ${p.tabId})\n   ${p.url}`,
     )
     response.text(lines.join('\n\n'))
+    const memoryWarning = buildMemoryGuardWarning(pages)
+    if (memoryWarning) response.text(memoryWarning)
     response.data({ pages, count: pages.length })
   },
 })
@@ -153,6 +203,16 @@ export const new_page = defineTool({
     windowId: z.number().optional(),
   }),
   handler: async (args, ctx, response) => {
+    if (!args.hidden) {
+      const pages = await ctx.browser.listPages().catch(() => [])
+      const memoryWarning = buildMemoryGuardWarning(pages)
+      if (memoryWarning) {
+        response.text(
+          `${memoryWarning}\nThis new tab will still be opened, but continue sequentially and close temporary tabs as soon as they are no longer needed.`,
+        )
+      }
+    }
+
     const pageId = await ctx.browser.newPage(args.url, {
       hidden: args.hidden ? true : undefined,
       background: args.background !== false,

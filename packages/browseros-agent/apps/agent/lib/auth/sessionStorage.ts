@@ -1,6 +1,6 @@
 import { storage } from '@wxt-dev/storage'
 import type { Session, User } from 'better-auth/types'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 interface SessionInfo {
   session?: Session
@@ -29,9 +29,9 @@ export const useSessionInfo = () => {
     return unwatch
   }, [])
 
-  const updateSessionInfo = async (info: SessionInfo) => {
+  const updateSessionInfo = useCallback(async (info: SessionInfo) => {
     await sessionStorage.setValue(info)
-  }
+  }, [])
 
   return { sessionInfo, isLoading, updateSessionInfo }
 }

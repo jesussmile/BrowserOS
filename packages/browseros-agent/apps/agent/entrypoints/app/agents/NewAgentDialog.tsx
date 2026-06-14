@@ -24,6 +24,7 @@ import type {
 } from './agent-harness-types'
 import type { CreateAgentRuntime, ProviderOption } from './agents-page-types'
 import { ProviderSelector } from './ProviderSelector'
+import type { LocalAgentRoleTemplate } from './useAgents'
 
 interface NewAgentDialogProps {
   adapters: HarnessAdapterDescriptor[]
@@ -38,6 +39,8 @@ interface NewAgentDialogProps {
   hermesSelectedProviderId: string
   name: string
   open: boolean
+  roleTemplates: LocalAgentRoleTemplate[]
+  selectedRoleId: string
   onCreate: () => void
   onOpenChange: (open: boolean) => void
   onRuntimeChange: (runtime: CreateAgentRuntime) => void
@@ -46,6 +49,7 @@ interface NewAgentDialogProps {
   onHarnessReasoningChange: (reasoningEffort: string) => void
   onHermesProviderChange: (providerId: string) => void
   onNameChange: (name: string) => void
+  onRoleChange: (roleId: string) => void
 }
 
 export const NewAgentDialog: FC<NewAgentDialogProps> = ({
@@ -61,6 +65,8 @@ export const NewAgentDialog: FC<NewAgentDialogProps> = ({
   hermesSelectedProviderId,
   name,
   open,
+  roleTemplates,
+  selectedRoleId,
   onCreate,
   onOpenChange,
   onRuntimeChange,
@@ -69,6 +75,7 @@ export const NewAgentDialog: FC<NewAgentDialogProps> = ({
   onHarnessReasoningChange,
   onHermesProviderChange,
   onNameChange,
+  onRoleChange,
 }) => {
   const selectedHarnessAdapter =
     adapters.find((adapter) => adapter.id === harnessAdapterId) ?? adapters[0]
@@ -111,6 +118,36 @@ export const NewAgentDialog: FC<NewAgentDialogProps> = ({
               }}
             />
           </div>
+
+          {roleTemplates.length > 0 ? (
+            <div className="grid gap-2">
+              <Label htmlFor="agent-role">Role</Label>
+              <Select
+                value={selectedRoleId || 'none'}
+                onValueChange={onRoleChange}
+              >
+                <SelectTrigger id="agent-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">General purpose</SelectItem>
+                  {roleTemplates.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedRoleId && selectedRoleId !== 'none' ? (
+                <p className="text-muted-foreground text-xs">
+                  {
+                    roleTemplates.find((role) => role.id === selectedRoleId)
+                      ?.shortDescription
+                  }
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="grid gap-2">
             <Label htmlFor="agent-runtime">Adapter</Label>

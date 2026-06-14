@@ -1,4 +1,4 @@
-import { ChevronDown, LogIn, LogOut, User } from 'lucide-react'
+import { ChevronDown, User } from 'lucide-react'
 import type { FC } from 'react'
 import { useNavigate } from 'react-router'
 import ProductLogo from '@/assets/product_logo.svg'
@@ -7,13 +7,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { GetProfileByUserIdDocument } from '@/entrypoints/app/profile/graphql/profileDocument'
-import { useSessionInfo } from '@/lib/auth/sessionStorage'
-import { useGraphqlQuery } from '@/lib/graphql/useGraphqlQuery'
 import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/lib/workspace/use-workspace'
 
@@ -25,51 +20,9 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
   expanded = true,
 }) => {
   const { selectedFolder } = useWorkspace()
-  const { sessionInfo } = useSessionInfo()
   const navigate = useNavigate()
 
-  const user = sessionInfo?.user
-  const isLoggedIn = !!user
-
-  const { data: profileData } = useGraphqlQuery(
-    GetProfileByUserIdDocument,
-    { userId: user?.id ?? '' },
-    { enabled: !!user?.id },
-  )
-
-  const profile = profileData?.profileByUserId
-  const profileName =
-    profile?.firstName || profile?.lastName
-      ? [profile.firstName, profile.lastName].filter(Boolean).join(' ')
-      : null
-  const displayName = profileName || user?.name || 'User'
-  const displayImage = profile?.avatarUrl || user?.image
-
-  const getInitials = (name?: string | null) => {
-    if (!name) return '?'
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2)
-  }
-
-  const headerIcon = isLoggedIn ? (
-    displayImage ? (
-      <img
-        src={displayImage}
-        alt={displayName}
-        className="size-8 shrink-0 rounded-full object-cover"
-      />
-    ) : (
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-medium text-primary-foreground text-xs">
-        {getInitials(displayName)}
-      </div>
-    )
-  ) : (
-    <img src={ProductLogo} alt="BrowserOS" className="size-8" />
-  )
+  const displayName = selectedFolder?.name || 'PannamOS'
 
   return (
     <div className="flex h-14 items-center justify-between border-b px-2">
@@ -82,7 +35,7 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
               expanded ? 'pr-3' : '',
             )}
           >
-            {headerIcon}
+            <img src={ProductLogo} alt="PannamOS" className="size-8" />
             <div
               className={cn(
                 'flex min-w-0 flex-col gap-0.5 leading-none transition-opacity duration-200',
@@ -90,22 +43,11 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
               )}
             >
               <div className="flex items-center gap-1">
-                <span className="truncate font-semibold">
-                  {isLoggedIn
-                    ? displayName
-                    : selectedFolder?.name || 'BrowserOS'}
-                </span>
+                <span className="truncate font-semibold">{displayName}</span>
                 <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
               </div>
-              <span
-                className={cn(
-                  'truncate text-xs',
-                  isLoggedIn
-                    ? 'text-muted-foreground'
-                    : 'font-medium text-primary',
-                )}
-              >
-                {isLoggedIn ? 'Personal' : 'Sign in'}
+              <span className="truncate font-medium text-primary text-xs">
+                Local
               </span>
             </div>
           </button>
@@ -115,38 +57,10 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
           align="start"
           className="w-56"
         >
-          {isLoggedIn ? (
-            <>
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="font-medium text-sm leading-none">
-                    {displayName}
-                  </p>
-                  <p className="text-muted-foreground text-xs leading-none">
-                    Personal
-                  </p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/profile')}>
-                <User className="mr-2 size-4" />
-                Update Profile
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => navigate('/logout')}
-                variant="destructive"
-              >
-                <LogOut className="mr-2 size-4" />
-                Sign out
-              </DropdownMenuItem>
-            </>
-          ) : (
-            <DropdownMenuItem onClick={() => navigate('/login')}>
-              <LogIn className="mr-2 size-4" />
-              Sign in
-            </DropdownMenuItem>
-          )}
+          <DropdownMenuItem onClick={() => navigate('/profile')}>
+            <User className="mr-2 size-4" />
+            Local profile
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <div

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router'
 import { AdapterIcon, adapterLabel } from '@/entrypoints/app/agents/AdapterIcon'
 import { useAgentAdapters } from '@/entrypoints/app/agents/useAgents'
 import { visibleAdapters } from '@/lib/chat/adapter-visibility'
-import { BrowserOSIcon } from '@/lib/llm-providers/providerIcons'
+import { PannamOSIcon } from '@/lib/llm-providers/providerIcons'
 import { cn } from '@/lib/utils'
 import { AdapterAgentsPane } from './AdapterAgentsPane'
 import {
@@ -20,7 +20,7 @@ interface SectionItem {
 }
 
 /**
- * AI & Agents settings shell. A `?section=`-driven tabbed page: a BrowserOS AI
+ * AI & Agents settings shell. A `?section=`-driven tabbed page: a PannamOS AI
  * tab (the LLM-providers pane) plus one tab per visible harness adapter
  * (Claude/Codex; Hermes filtered out). The pane below swaps on the active tab.
  */
@@ -35,7 +35,7 @@ export const AISettingsPage: FC = () => {
   )
   // Resolver only returns a non-browseros section that matches a visible
   // adapter, so this is the typed descriptor for the active adapter pane
-  // (undefined ⇒ the BrowserOS AI pane).
+  // (undefined ⇒ the PannamOS AI pane).
   const activeAdapter = shownAdapters.find(
     (adapter) => adapter.id === activeSection,
   )
@@ -43,8 +43,8 @@ export const AISettingsPage: FC = () => {
   const items: SectionItem[] = [
     {
       id: BROWSEROS_SECTION,
-      label: 'BrowserOS AI',
-      icon: <BrowserOSIcon size={16} />,
+      label: 'PannamOS AI',
+      icon: <PannamOSIcon size={16} />,
     },
     ...shownAdapters.map((adapter) => ({
       id: adapter.id,

@@ -5,12 +5,7 @@ import { parse } from 'dotenv'
 
 import type { BuildConfig } from './types'
 
-const REQUIRED_PROD_VARS = [
-  'BROWSEROS_CONFIG_URL',
-  'CODEGEN_SERVICE_URL',
-  'POSTHOG_API_KEY',
-  'SENTRY_DSN',
-]
+const REQUIRED_PROD_VARS: string[] = []
 const INLINED_ENV_VARS = [
   ...REQUIRED_PROD_VARS,
   'NODE_ENV',
@@ -54,7 +49,10 @@ function buildInlineEnv(
 ): Record<string, string> {
   const inlineEnv: Record<string, string> = {}
   for (const key of INLINED_ENV_VARS) {
-    const value = process.env[key] ?? fileEnv[key]
+    const value =
+      key === 'NODE_ENV'
+        ? (fileEnv[key] ?? process.env[key])
+        : (process.env[key] ?? fileEnv[key])
     if (value !== undefined) {
       inlineEnv[key] = value
     }

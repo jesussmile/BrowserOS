@@ -41,7 +41,7 @@ export const TIPS: Tip[] = [
   },
   {
     id: 'claude-code-mcp',
-    text: 'Connect BrowserOS to Claude Code to control tabs, clicks, and pages from your terminal.',
+    text: 'Connect PannamOS to Claude Code to control tabs, clicks, and pages from your terminal.',
   },
   {
     id: 'mcp-servers',
@@ -49,11 +49,11 @@ export const TIPS: Tip[] = [
   },
   {
     id: 'smart-nudges',
-    text: 'If BrowserOS offers to connect an app, saying yes lets it use that app directly next time.',
+    text: 'Add local app catalog entries for planning, then wire custom MCP servers when a live connector is needed.',
   },
   {
-    id: 'sync-to-cloud',
-    text: 'Sign in to sync your chats, settings, and scheduled tasks across devices. API keys stay on each device.',
+    id: 'local-sessions',
+    text: 'Chats, goal runs, and audit events are saved locally on this PC.',
   },
   {
     id: 'import-chrome',
@@ -61,7 +61,7 @@ export const TIPS: Tip[] = [
   },
   {
     id: 'ad-blocking',
-    text: 'BrowserOS supports uBlock Origin for ad blocking — install it from the Chrome Web Store or GitHub.',
+    text: 'PannamOS supports uBlock Origin for ad blocking — install it from the Chrome Web Store or GitHub.',
   },
   {
     id: 'at-mention-tabs',
@@ -69,7 +69,7 @@ export const TIPS: Tip[] = [
   },
   {
     id: 'mode-selection',
-    text: 'Use Chat mode for read-only operations like questions and summaries, and Agent mode for multi-step browser tasks.',
+    text: 'Use Chat for read-only answers, Research for source gathering, Workflow for repeatable tasks, and Goal for supervised completion.',
   },
   {
     id: 'vertical-tabs',

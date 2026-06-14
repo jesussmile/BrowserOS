@@ -24,6 +24,7 @@ import { JtbdPopup } from './JtbdPopup'
 import { ScheduleSuggestionCard } from './ScheduleSuggestionCard'
 import { ToolBatch } from './ToolBatch'
 import { UserActionMessage } from './UserActionMessage'
+import type { ToolApprovalResponder } from './useChatSessionApprovals'
 
 interface ChatMessagesProps {
   messages: UIMessage[]
@@ -33,6 +34,7 @@ interface ChatMessagesProps {
   onClickLike: (messageId: string) => void
   disliked: Record<string, boolean>
   onClickDislike: (messageId: string, comment?: string) => void
+  onToolApprovalResponse?: ToolApprovalResponder
   showJtbdPopup: boolean
   showDontShowAgain: boolean
   onTakeSurvey: (opts?: { dontShowAgain?: boolean }) => void
@@ -47,6 +49,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
   disliked,
   onClickLike,
   onClickDislike,
+  onToolApprovalResponse,
   showJtbdPopup,
   showDontShowAgain,
   onTakeSurvey,
@@ -55,8 +58,8 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
   const isStreaming = status === 'streaming' || status === 'submitted'
 
   return (
-    <>
-      <Conversation className="ph-mask">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <Conversation className="ph-mask min-h-0">
         <ConversationContent>
           {messages.map((message, messageIndex) => {
             const action = getActionForMessage?.(message)
@@ -114,6 +117,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                                 isLastBatch={segment.key === lastToolBatchKey}
                                 isLastMessage={isLastMessage}
                                 isStreaming={isStreaming}
+                                onToolApprovalResponse={onToolApprovalResponse}
                               />
                             )
                           case 'nudge':
@@ -176,6 +180,6 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
         </div>
       )}
       <div />
-    </>
+    </div>
   )
 }

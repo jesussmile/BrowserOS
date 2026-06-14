@@ -1,6 +1,6 @@
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import {
-  createDefaultBrowserOSProvider,
+  createDefaultPannamOSProvider,
   defaultProviderIdStorage,
   providersStorage,
 } from '@/lib/llm-providers/storage'
@@ -20,7 +20,7 @@ const resolveProvider = async (
     if (defaultProvider) return defaultProvider
     if (providers[0]) return providers[0]
   }
-  return createDefaultBrowserOSProvider()
+  return createDefaultPannamOSProvider()
 }
 
 interface RefinePromptResponse {

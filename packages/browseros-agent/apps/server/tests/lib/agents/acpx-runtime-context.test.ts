@@ -25,6 +25,22 @@ import {
 } from '../../../src/lib/agents/acpx-runtime-context'
 import type { AgentDefinition } from '../../../src/lib/agents/agent-types'
 
+const LOCAL_RUNTIME_SKILLS = [
+  'approval-gates',
+  'chat',
+  'connected-apps',
+  'extraction',
+  'forms',
+  'goal',
+  'memory',
+  'pannamos',
+  'research',
+  'soul',
+  'tab-workflows',
+  'workflow',
+]
+const posixIt = process.platform === 'win32' ? it.skip : it
+
 describe('acpx runtime context helpers', () => {
   const tempDirs: string[] = []
 
@@ -113,20 +129,22 @@ describe('acpx runtime context helpers', () => {
     ).toContain('# MEMORY.md')
   })
 
-  it('writes BrowserOS runtime skill files', async () => {
+  it('writes PannamOS runtime skill files', async () => {
     const browserosDir = await mkdtemp(join(tmpdir(), 'browseros-context-'))
     tempDirs.push(browserosDir)
     const paths = resolveAgentRuntimePaths({ browserosDir, agentId: 'agent-1' })
 
-    const skills = await ensureRuntimeSkills(paths.runtimeSkillsDir)
+    const skills = await ensureRuntimeSkills(paths.runtimeSkillsDir, {
+      repoSkillRoots: [],
+    })
 
-    expect(skills).toEqual(['browseros', 'memory', 'soul'])
+    expect(skills).toEqual(LOCAL_RUNTIME_SKILLS)
     expect(
       await readFile(
-        join(paths.runtimeSkillsDir, 'browseros', 'SKILL.md'),
+        join(paths.runtimeSkillsDir, 'pannamos', 'SKILL.md'),
         'utf8',
       ),
-    ).toContain('BrowserOS MCP')
+    ).toContain('PannamOS MCP')
     expect(
       await readFile(
         join(paths.runtimeSkillsDir, 'memory', 'SKILL.md'),
@@ -147,19 +165,25 @@ describe('acpx runtime context helpers', () => {
     ).toContain('If you change SOUL.md, tell the user')
   })
 
-  it('refreshes managed runtime skills even when an existing file is read-only', async () => {
-    const browserosDir = await mkdtemp(join(tmpdir(), 'browseros-context-'))
-    tempDirs.push(browserosDir)
-    const paths = resolveAgentRuntimePaths({ browserosDir, agentId: 'agent-1' })
-    const skillPath = join(paths.runtimeSkillsDir, 'browseros', 'SKILL.md')
+  posixIt(
+    'refreshes managed runtime skills even when an existing file is read-only',
+    async () => {
+      const browserosDir = await mkdtemp(join(tmpdir(), 'browseros-context-'))
+      tempDirs.push(browserosDir)
+      const paths = resolveAgentRuntimePaths({
+        browserosDir,
+        agentId: 'agent-1',
+      })
+      const skillPath = join(paths.runtimeSkillsDir, 'pannamos', 'SKILL.md')
 
-    await ensureRuntimeSkills(paths.runtimeSkillsDir)
-    await chmod(skillPath, 0o444)
+      await ensureRuntimeSkills(paths.runtimeSkillsDir, { repoSkillRoots: [] })
+      await chmod(skillPath, 0o444)
 
-    await ensureRuntimeSkills(paths.runtimeSkillsDir)
+      await ensureRuntimeSkills(paths.runtimeSkillsDir, { repoSkillRoots: [] })
 
-    expect(await readFile(skillPath, 'utf8')).toContain('BrowserOS MCP')
-  })
+      expect(await readFile(skillPath, 'utf8')).toContain('PannamOS MCP')
+    },
+  )
 
   it('materializes Codex home with auth symlink and all runtime skills', async () => {
     const browserosDir = await mkdtemp(join(tmpdir(), 'browseros-context-'))
@@ -170,7 +194,9 @@ describe('acpx runtime context helpers', () => {
     await writeFile(join(sourceCodexHome, 'auth.json'), '{"ok":true}\n')
     await writeFile(join(sourceCodexHome, 'config.toml'), 'model = "test"\n')
     const paths = resolveAgentRuntimePaths({ browserosDir, agentId: 'agent-1' })
-    const skills = await ensureRuntimeSkills(paths.runtimeSkillsDir)
+    const skills = await ensureRuntimeSkills(paths.runtimeSkillsDir, {
+      repoSkillRoots: [],
+    })
 
     await materializeCodexHome({ paths, skillNames: skills, sourceCodexHome })
 
@@ -181,10 +207,63 @@ describe('acpx runtime context helpers', () => {
     )
     expect(
       await readFile(
-        join(paths.codexHome, 'skills', 'browseros', 'SKILL.md'),
+        join(paths.codexHome, 'skills', 'pannamos', 'SKILL.md'),
         'utf8',
       ),
-    ).toContain('BrowserOS MCP')
+    ).toContain('PannamOS MCP')
+  })
+
+  it('materializes repository-bundled skill directories into runtime and Codex home', async () => {
+    const browserosDir = await mkdtemp(join(tmpdir(), 'browseros-context-'))
+    const repoSkillRoot = await mkdtemp(join(tmpdir(), 'browseros-skills-'))
+    const sourceCodexHome = await mkdtemp(
+      join(tmpdir(), 'browseros-codex-src-'),
+    )
+    tempDirs.push(browserosDir, repoSkillRoot, sourceCodexHome)
+    await mkdir(join(repoSkillRoot, 'repo-research'), { recursive: true })
+    await writeFile(
+      join(repoSkillRoot, 'repo-research', 'SKILL.md'),
+      `---
+name: repo-research
+description: Use for repository-local research workflows.
+---
+
+# Repo Research
+
+Read reference.md when needed.
+`,
+    )
+    await writeFile(
+      join(repoSkillRoot, 'repo-research', 'reference.md'),
+      '# Reference\n',
+    )
+
+    const paths = resolveAgentRuntimePaths({ browserosDir, agentId: 'agent-1' })
+    const skills = await ensureRuntimeSkills(paths.runtimeSkillsDir, {
+      repoSkillRoots: [repoSkillRoot],
+    })
+
+    expect(skills).toContain('repo-research')
+    expect(
+      await readFile(
+        join(paths.runtimeSkillsDir, 'repo-research', 'SKILL.md'),
+        'utf8',
+      ),
+    ).toContain('Repo Research')
+    expect(
+      await readFile(
+        join(paths.runtimeSkillsDir, 'repo-research', 'reference.md'),
+        'utf8',
+      ),
+    ).toContain('Reference')
+
+    await materializeCodexHome({ paths, skillNames: skills, sourceCodexHome })
+    expect(
+      await readFile(
+        join(paths.codexHome, 'skills', 'repo-research', 'reference.md'),
+        'utf8',
+      ),
+    ).toContain('Reference')
   })
 
   it('rejects non-file Codex auth sources instead of silently skipping auth', async () => {
@@ -195,7 +274,9 @@ describe('acpx runtime context helpers', () => {
     tempDirs.push(browserosDir, sourceCodexHome)
     await mkdir(join(sourceCodexHome, 'auth.json'))
     const paths = resolveAgentRuntimePaths({ browserosDir, agentId: 'agent-1' })
-    const skills = await ensureRuntimeSkills(paths.runtimeSkillsDir)
+    const skills = await ensureRuntimeSkills(paths.runtimeSkillsDir, {
+      repoSkillRoots: [],
+    })
 
     await expect(
       materializeCodexHome({ paths, skillNames: skills, sourceCodexHome }),
@@ -210,7 +291,9 @@ describe('acpx runtime context helpers', () => {
     tempDirs.push(browserosDir, sourceCodexHome)
     await mkdir(join(sourceCodexHome, 'config.toml'))
     const paths = resolveAgentRuntimePaths({ browserosDir, agentId: 'agent-1' })
-    const skills = await ensureRuntimeSkills(paths.runtimeSkillsDir)
+    const skills = await ensureRuntimeSkills(paths.runtimeSkillsDir, {
+      repoSkillRoots: [],
+    })
 
     await expect(
       materializeCodexHome({ paths, skillNames: skills, sourceCodexHome }),
@@ -228,7 +311,7 @@ describe('acpx runtime context helpers', () => {
     )
   })
 
-  it('builds the BrowserOS operating prompt prefix', () => {
+  it('builds the PannamOS operating prompt prefix', () => {
     const agent: AgentDefinition = {
       id: 'agent-1',
       name: 'Researcher',
@@ -239,7 +322,7 @@ describe('acpx runtime context helpers', () => {
       updatedAt: 1000,
     }
     const paths = resolveAgentRuntimePaths({
-      browserosDir: '/tmp/browseros',
+      browserosDir: '/tmp/pannamos',
       agentId: agent.id,
       cwd: '/tmp/workspace',
     })
@@ -247,21 +330,23 @@ describe('acpx runtime context helpers', () => {
     const prompt = buildAcpxRuntimePromptPrefix({
       agent,
       paths,
-      skillNames: ['browseros', 'memory', 'soul'],
+      skillNames: LOCAL_RUNTIME_SKILLS,
     })
 
-    expect(prompt).toContain('You are BrowserOS')
-    expect(prompt).toContain(
-      'AGENT_HOME=/tmp/browseros/agents/harness/agent-1/home',
+    expect(prompt).toContain('You are PannamOS')
+    expect(normalizePath(prompt)).toContain(
+      'AGENT_HOME=/tmp/pannamos/agents/harness/agent-1/home',
     )
-    expect(prompt).toContain('Current workspace cwd: /tmp/workspace')
-    expect(prompt).toContain(
-      'Skill root: /tmp/browseros/agents/harness/runtime-skills',
+    expect(normalizePath(prompt)).toContain('/tmp/workspace')
+    expect(normalizePath(prompt)).toContain(
+      'Skill root: /tmp/pannamos/agents/harness/runtime-skills',
     )
-    expect(prompt).toContain('Available skills: browseros, memory, soul')
+    expect(prompt).toContain(
+      'Available skills: approval-gates, chat, connected-apps, extraction, forms, goal, memory, pannamos, research, soul, tab-workflows, workflow',
+    )
   })
 
-  it('routes explicit memory requests to BrowserOS AGENT_HOME files', () => {
+  it('routes explicit memory requests to PannamOS AGENT_HOME files', () => {
     const agent: AgentDefinition = {
       id: 'agent-1',
       name: 'Researcher',
@@ -272,7 +357,7 @@ describe('acpx runtime context helpers', () => {
       updatedAt: 1000,
     }
     const paths = resolveAgentRuntimePaths({
-      browserosDir: '/tmp/browseros',
+      browserosDir: '/tmp/pannamos',
       agentId: agent.id,
       cwd: '/tmp/workspace',
     })
@@ -280,13 +365,17 @@ describe('acpx runtime context helpers', () => {
     const prompt = buildAcpxRuntimePromptPrefix({
       agent,
       paths,
-      skillNames: ['browseros', 'memory', 'soul'],
+      skillNames: LOCAL_RUNTIME_SKILLS,
     })
 
     expect(prompt).toContain('When the user asks you to remember')
-    expect(prompt).toContain('use the BrowserOS memory skill')
+    expect(prompt).toContain('use the PannamOS memory skill')
     expect(prompt).toContain('AGENT_HOME/MEMORY.md')
     expect(prompt).toContain('AGENT_HOME/memory/YYYY-MM-DD.md')
     expect(prompt).toContain('Do not use native Claude project memory')
   })
 })
+
+function normalizePath(value: string): string {
+  return value.replace(/\\/g, '/')
+}

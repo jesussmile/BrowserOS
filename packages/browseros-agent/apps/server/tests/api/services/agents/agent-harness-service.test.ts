@@ -465,7 +465,7 @@ async function withHermesBrowserosDir<T>(
   }) => Promise<T>,
   options: { ensureVmRuntimeReady?: EnsureVmRuntimeReady } = {},
 ): Promise<T> {
-  const browserosDir = mkdtempSync(join(tmpdir(), 'browseros-hermes-test-'))
+  const browserosDir = mkdtempSync(join(tmpdir(), 'pannamos-hermes-test-'))
   const agents: AgentDefinition[] = []
   try {
     const service = new AgentHarnessService({

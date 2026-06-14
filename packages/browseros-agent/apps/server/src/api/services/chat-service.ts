@@ -4,11 +4,17 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { createAgentUIStreamResponse, type UIMessage } from 'ai'
+import {
+  createAgentUIStreamResponse,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  type UIMessage,
+} from 'ai'
 import { AiSdkAgent } from '../../agent/ai-sdk-agent'
 import { formatUserMessage } from '../../agent/format-message'
 import {
   filterValidMessages,
+  sanitizeIncompleteToolCalls,
   sanitizeMessagesForToolset,
 } from '../../agent/message-validation'
 import type { AgentSession, SessionStore } from '../../agent/session-store'
@@ -20,6 +26,7 @@ import type { ToolRegistry } from '../../tools/tool-registry'
 import type { KlavisProxyRef } from '../services/klavis/strata-proxy'
 import type { BrowserContext, ChatRequest } from '../types'
 import { resolveBrowserContextPageIds } from '../utils/resolve-browser-context-page-ids'
+import { LocalSessionService } from './local-session-service'
 
 export interface ChatServiceDeps {
   sessionStore: SessionStore
@@ -27,7 +34,136 @@ export interface ChatServiceDeps {
   browser: Browser
   registry: ToolRegistry
   browserosId?: string
+  defaultOutputDir?: string
   aiSdkDevtoolsEnabled?: boolean
+}
+
+interface ToolApprovalResponse {
+  id: string
+  approved: boolean
+  reason?: string
+}
+
+interface AppliedToolApprovalResponse extends ToolApprovalResponse {
+  toolName: string
+  toolCallId?: string
+}
+
+function getToolNameFromPart(part: unknown): string | undefined {
+  const type = (part as { type?: unknown })?.type
+  return typeof type === 'string' && type.startsWith('tool-')
+    ? type.slice(5)
+    : undefined
+}
+
+function applyToolApprovalResponses(
+  messages: UIMessage[],
+  responses: ToolApprovalResponse[],
+): {
+  messages: UIMessage[]
+  appliedResponses: AppliedToolApprovalResponse[]
+} {
+  const responseById = new Map(
+    responses.map((response) => [response.id, response]),
+  )
+  const appliedResponses: AppliedToolApprovalResponse[] = []
+
+  const updatedMessages: UIMessage[] = messages.map(
+    (message): UIMessage => ({
+      ...message,
+      parts: message.parts.map((part): UIMessage['parts'][number] => {
+        const toolPart = part as {
+          state?: string
+          toolCallId?: string
+          approval?: { id?: string }
+        }
+        const approvalId = toolPart.approval?.id
+        if (toolPart.state !== 'approval-requested' || !approvalId) return part
+
+        const response = responseById.get(approvalId)
+        if (!response) return part
+
+        const toolName = getToolNameFromPart(part)
+        if (!toolName) return part
+
+        appliedResponses.push({
+          ...response,
+          toolName,
+          toolCallId: toolPart.toolCallId,
+        })
+
+        return {
+          ...part,
+          state: 'approval-responded' as const,
+          approval: {
+            id: response.id,
+            approved: response.approved,
+            reason: response.reason,
+          },
+        } as UIMessage['parts'][number]
+      }),
+    }),
+  )
+
+  return { messages: updatedMessages, appliedResponses }
+}
+
+function recordToolApprovalResponseAudit(
+  sessionId: string,
+  approvals: AppliedToolApprovalResponse[],
+) {
+  if (approvals.length === 0) return
+
+  try {
+    const service = new LocalSessionService()
+    for (const approval of approvals) {
+      service.recordAuditEvent({
+        sessionId,
+        type: approval.approved
+          ? 'tool.browser.approval_approved'
+          : 'tool.browser.approval_denied',
+        summary: `Browser tool ${approval.toolName} approval ${
+          approval.approved ? 'approved' : 'denied'
+        }`,
+        payload: {
+          approvalId: approval.id,
+          toolCallId: approval.toolCallId,
+          toolName: approval.toolName,
+          approved: approval.approved,
+          reason: approval.reason,
+        },
+      })
+    }
+  } catch (error) {
+    logger.warn('Failed to record tool approval response audit event', {
+      sessionId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
+function createNoopUIMessageStreamResponse(): Response {
+  return createUIMessageStreamResponse({
+    stream: createUIMessageStream({
+      execute: () => {},
+    }),
+  })
+}
+
+function imageAttachmentsToUiParts(
+  attachments: ChatRequest['attachments'] | undefined,
+): UIMessage['parts'] {
+  return (attachments ?? [])
+    .filter((attachment) => attachment.kind === 'image')
+    .map(
+      (attachment) =>
+        ({
+          type: 'file',
+          mediaType: attachment.mediaType,
+          url: attachment.dataUrl,
+          filename: attachment.name,
+        }) as UIMessage['parts'][number],
+    )
 }
 
 export class ChatService {
@@ -59,17 +195,34 @@ export class ChatService {
       contextWindowSize: request.contextWindowSize,
       userSystemPrompt: request.userSystemPrompt,
       workingDir: request.userWorkingDir,
+      defaultOutputDir: this.deps.defaultOutputDir,
       supportsImages: request.supportsImages,
+      mode: request.mode,
       chatMode: request.mode === 'chat',
       isScheduledTask: request.isScheduledTask,
       origin: request.origin,
       declinedApps: request.declinedApps,
       browserosId: this.deps.browserosId,
+      approvalPolicy: request.approvalPolicy,
+      agentStrategy: request.agentStrategy,
     }
 
     let session = sessionStore.get(request.conversationId)
     let isNewSession = false
     const contextChanges: string[] = []
+    const hasApprovalResponses = (request.approvalResponses?.length ?? 0) > 0
+    const isApprovalContinuation =
+      hasApprovalResponses && !request.message.trim()
+
+    if (!session && hasApprovalResponses) {
+      return Response.json(
+        {
+          error:
+            'This approval request can no longer be resumed. Start a new message and retry the action.',
+        },
+        { status: 409 },
+      )
+    }
 
     // Build stable keys for change detection
     const mcpServerKey = this.buildMcpServerKey(request.browserContext)
@@ -248,6 +401,43 @@ export class ChatService {
       })
     }
 
+    let wrappedUserMessageId: string | undefined
+
+    if (hasApprovalResponses) {
+      const applied = applyToolApprovalResponses(
+        session.agent.messages,
+        request.approvalResponses ?? [],
+      )
+      session.agent.messages = sanitizeIncompleteToolCalls(applied.messages, {
+        preserveApprovalResponded: true,
+      })
+      recordToolApprovalResponseAudit(
+        request.conversationId,
+        applied.appliedResponses,
+      )
+
+      if (applied.appliedResponses.length === 0) {
+        logger.warn('No pending tool approval matched submitted responses', {
+          conversationId: request.conversationId,
+          approvalCount: request.approvalResponses?.length ?? 0,
+        })
+        if (isApprovalContinuation) {
+          return createNoopUIMessageStreamResponse()
+        }
+        return Response.json(
+          {
+            error:
+              'No pending tool approval matched this response. Retry the action from the current chat state.',
+          },
+          { status: 409 },
+        )
+      }
+    } else {
+      session.agent.messages = sanitizeIncompleteToolCalls(
+        session.agent.messages,
+      )
+    }
+
     const messageContext = request.isScheduledTask
       ? (session.browserContext ?? request.browserContext)
       : request.browserContext
@@ -262,7 +452,9 @@ export class ChatService {
       resolvedMessageContext,
       request.selectedText,
       request.selectedTextSource,
+      request.attachments,
     )
+    const imageParts = imageAttachmentsToUiParts(request.attachments)
 
     // Prepend tool-change context when session was rebuilt mid-conversation
     const contextPrefix =
@@ -276,19 +468,29 @@ export class ChatService {
     // <selected_text> + <USER_QUERY>) is built as a transient prompt
     // copy below — the LLM sees it, the user-visible state never
     // does.
-    session.agent.appendUserMessage(request.message)
+    if (!isApprovalContinuation) {
+      session.agent.appendUserMessage(request.message)
+      wrappedUserMessageId =
+        session.agent.messages[session.agent.messages.length - 1]?.id
+    }
     const promptUserText = contextPrefix + userContent
-    const wrappedUserMessageId =
-      session.agent.messages[session.agent.messages.length - 1]?.id
 
-    const promptUiMessages = filterValidMessages(session.agent.messages).map(
-      (msg) =>
-        msg.id === wrappedUserMessageId && msg.role === 'user'
-          ? {
-              ...msg,
-              parts: [{ type: 'text' as const, text: promptUserText }],
-            }
-          : msg,
+    const promptUiMessages = filterValidMessages(
+      sanitizeIncompleteToolCalls(session.agent.messages, {
+        preserveApprovalResponded: hasApprovalResponses,
+      }),
+    ).map((msg) =>
+      wrappedUserMessageId &&
+      msg.id === wrappedUserMessageId &&
+      msg.role === 'user'
+        ? {
+            ...msg,
+            parts: [
+              { type: 'text' as const, text: promptUserText },
+              ...imageParts,
+            ],
+          }
+        : msg,
     )
 
     return createAgentUIStreamResponse({
@@ -301,7 +503,9 @@ export class ChatService {
         // so subsequent turns see the clean text and the client's
         // local UIMessage matches what was originally typed.
         const restored = messages.map((msg) =>
-          msg.id === wrappedUserMessageId && msg.role === 'user'
+          wrappedUserMessageId &&
+          msg.id === wrappedUserMessageId &&
+          msg.role === 'user'
             ? {
                 ...msg,
                 parts: [{ type: 'text' as const, text: request.message }],
@@ -391,14 +595,14 @@ export class ChatService {
   }
 
   private buildMcpServerKey(browserContext?: BrowserContext): string {
-    const managed = browserContext?.enabledMcpServers?.slice().sort() ?? []
+    const managed = this.deps.klavisRef?.handle
+      ? (browserContext?.enabledMcpServers?.slice().sort() ?? [])
+      : []
     const custom =
       browserContext?.customMcpServers?.map((s) => s.url).sort() ?? []
     const klavisState =
-      managed.length > 0
-        ? this.deps.klavisRef?.handle
-          ? 'klavis:connected'
-          : 'klavis:pending'
+      managed.length > 0 && this.deps.klavisRef?.handle
+        ? 'klavis:connected'
         : null
     return [klavisState, ...managed, ...custom].filter(Boolean).join(',')
   }

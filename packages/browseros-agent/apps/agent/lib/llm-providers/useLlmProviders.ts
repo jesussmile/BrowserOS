@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { applyAuthenticatedChatGPTProvider } from './chatgptDefaultProvider'
 import {
   createDefaultProvidersConfig,
   DEFAULT_PROVIDER_ID,
@@ -7,6 +9,24 @@ import {
   providersStorage,
 } from './storage'
 import type { LlmProviderConfig } from './types'
+
+interface OAuthStatus {
+  authenticated: boolean
+  email?: string
+}
+
+async function getAuthenticatedChatGPTStatus(): Promise<OAuthStatus | null> {
+  try {
+    const serverUrl = await getAgentServerUrl()
+    const response = await fetch(`${serverUrl}/oauth/chatgpt-pro/status`)
+    if (!response.ok) return null
+
+    const status = (await response.json()) as OAuthStatus
+    return status.authenticated ? status : null
+  } catch {
+    return null
+  }
+}
 
 /**
  * Hook return type
@@ -67,6 +87,25 @@ export function useLlmProviders(): UseLlmProvidersReturn {
         if (!defaultExists && loadedProviders.length > 0) {
           loadedDefaultId = loadedProviders[0].id
           await defaultProviderIdStorage.setValue(loadedDefaultId)
+        }
+
+        const chatgptStatus = await getAuthenticatedChatGPTStatus()
+        if (chatgptStatus) {
+          const chatgptBootstrap = applyAuthenticatedChatGPTProvider(
+            loadedProviders,
+            loadedDefaultId,
+            { email: chatgptStatus.email },
+          )
+
+          loadedProviders = chatgptBootstrap.providers
+          loadedDefaultId = chatgptBootstrap.defaultProviderId
+
+          if (chatgptBootstrap.providersChanged) {
+            await providersStorage.setValue(loadedProviders)
+          }
+          if (chatgptBootstrap.defaultProviderChanged) {
+            await defaultProviderIdStorage.setValue(loadedDefaultId)
+          }
         }
 
         setProviders(loadedProviders)
@@ -138,13 +177,9 @@ export function useLlmProviders(): UseLlmProvidersReturn {
   }
 
   const deleteProvider = async (providerId: string) => {
-    // Prevent deletion of built-in BrowserOS provider
-    if (providerId === DEFAULT_PROVIDER_ID) {
-      return
-    }
-
     const currentProviders = (await providersStorage.getValue()) || []
     const updatedProviders = currentProviders.filter((p) => p.id !== providerId)
+    if (updatedProviders.length === 0) return
 
     // Handle default provider reassignment if deleted provider was default
     if (defaultProviderId === providerId) {

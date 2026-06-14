@@ -35,7 +35,7 @@ function configsMatch(
 }
 
 /**
- * Ensures the full BrowserOS test environment is ready:
+ * Ensures the full PannamOS test environment is ready:
  * 1. Server running and healthy
  * 2. Browser running with CDP available
  *
@@ -68,7 +68,7 @@ export async function ensureBrowserOS(
   }
 
   // Config changed or not running: full setup
-  console.log('\n=== Setting up BrowserOS test environment ===')
+  console.log('\n=== Setting up PannamOS test environment ===')
 
   // 1. Kill conflicting processes on ports
   await killProcessOnPort(config.serverPort)
@@ -93,10 +93,10 @@ export async function ensureBrowserOS(
 }
 
 /**
- * Cleans up the full BrowserOS test environment.
+ * Cleans up the full PannamOS test environment.
  */
 export async function cleanupBrowserOS(): Promise<void> {
-  console.log('\n=== Cleaning up BrowserOS test environment ===')
+  console.log('\n=== Cleaning up PannamOS test environment ===')
   await killBrowser()
   await killServer()
   runtimePlan = null

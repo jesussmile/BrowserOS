@@ -10,14 +10,14 @@
  * - MCP HTTP routes (using @hono/mcp transport)
  */
 
+import { join } from 'node:path'
+import { PATHS } from '@browseros/shared/constants/paths'
 import { Hono } from 'hono'
 import { websocket } from 'hono/bun'
 import { cors } from 'hono/cors'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors'
-import { INLINED_ENV } from '../env'
 import { ensureHermesRuntimeReady } from '../lib/agents/runtime'
-import { KlavisClient } from '../lib/clients/klavis/klavis-client'
 import { initializeOAuth, shutdownOAuth } from '../lib/clients/oauth'
 import { getDb } from '../lib/db'
 import { logger } from '../lib/logger'
@@ -27,6 +27,7 @@ import { createChatRoutes } from './routes/chat'
 import { createCreditsRoutes } from './routes/credits'
 import { createHealthRoute } from './routes/health'
 import { createKlavisRoutes } from './routes/klavis'
+import { createLocalRoutes } from './routes/local'
 import { createMcpRoutes } from './routes/mcp'
 import { createMonitoringRoutes } from './routes/monitoring'
 import { createOAuthRoutes } from './routes/oauth'
@@ -34,10 +35,10 @@ import { createProviderRoutes } from './routes/provider'
 import { createRefinePromptRoutes } from './routes/refine-prompt'
 import { createShutdownRoute } from './routes/shutdown'
 import { createStatusRoute } from './routes/status'
-import {
-  connectKlavisInBackground,
-  type KlavisProxyRef,
-} from './services/klavis/strata-proxy'
+import { GoalLoopBrowserExecutor } from './services/goal-loop-browser-executor'
+import { GoalLoopService } from './services/goal-loop-service'
+import type { KlavisProxyRef } from './services/klavis/strata-proxy'
+import { LocalSessionService } from './services/local-session-service'
 import type { Env, HttpServerConfig } from './types'
 import { defaultCorsConfig } from './utils/cors'
 import { requireTrustedAppOrigin } from './utils/request-auth'
@@ -71,6 +72,7 @@ export async function createHttpServer(config: HttpServerConfig) {
     host = '0.0.0.0',
     browserosId,
     executionDir,
+    outputsDir,
     resourcesDir,
     version,
     browser,
@@ -83,14 +85,47 @@ export async function createHttpServer(config: HttpServerConfig) {
     : null
   if (!browserosId) shutdownOAuth()
 
-  // Connect Klavis proxy in background with retry — browser tools available immediately
+  // Cloud-backed Klavis proxy is disabled for the private local-first build.
   const klavisRef: KlavisProxyRef = { handle: null }
-  const stopKlavisBackground = browserosId
-    ? connectKlavisInBackground(klavisRef, {
-        klavisClient: new KlavisClient(),
-        browserosId,
-      })
-    : () => {}
+  const stopKlavisBackground = () => {}
+  const localSessionService = new LocalSessionService()
+  const goalLoopExecutor = new GoalLoopBrowserExecutor({
+    browser,
+    outputDir: join(outputsDir, PATHS.GOAL_LOOP_OUTPUT_DIR_NAME),
+  })
+  const goalLoopService = new GoalLoopService({
+    service: localSessionService,
+    executor: goalLoopExecutor,
+  })
+  let goalLoopWatchdogRunning = false
+  let goalLoopWatchdog: ReturnType<typeof setInterval> | null = null
+  const stopGoalLoopWatchdog = () => {
+    if (!goalLoopWatchdog) return
+    clearInterval(goalLoopWatchdog)
+    goalLoopWatchdog = null
+  }
+  const startGoalLoopWatchdog = () => {
+    if (goalLoopWatchdog) return
+    goalLoopWatchdog = setInterval(() => {
+      if (goalLoopWatchdogRunning) return
+      goalLoopWatchdogRunning = true
+      goalLoopService
+        .resumeUnfinishedGoals({
+          statuses: ['running'],
+          maxItems: 1,
+          resumeReason: 'watchdog',
+        })
+        .catch((err) =>
+          logger.warn('Goal Loop watchdog failed to resume queued work', {
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        )
+        .finally(() => {
+          goalLoopWatchdogRunning = false
+        })
+    }, 60_000)
+    goalLoopWatchdog.unref?.()
+  }
 
   const monitoringRoutes = new Hono<Env>()
     .use('/*', requireTrustedAppOrigin())
@@ -117,9 +152,20 @@ export async function createHttpServer(config: HttpServerConfig) {
     .use('/*', cors(defaultCorsConfig))
     .route('/health', createHealthRoute({ browser }))
     .route(
+      '/local',
+      new Hono<Env>().use('/*', requireTrustedAppOrigin()).route(
+        '/',
+        createLocalRoutes({
+          service: localSessionService,
+          goalLoop: goalLoopService,
+        }),
+      ),
+    )
+    .route(
       '/shutdown',
       createShutdownRoute({
         onShutdown: () => {
+          stopGoalLoopWatchdog()
           shutdownOAuth()
           stopKlavisBackground()
           klavisRef.handle?.close().catch((err) =>
@@ -143,14 +189,12 @@ export async function createHttpServer(config: HttpServerConfig) {
             c.json({ error: 'OAuth not available' }, 503),
           ),
     )
-    .route('/klavis', createKlavisRoutes({ browserosId: browserosId || '' }))
+    .route('/klavis', createKlavisRoutes({ browserosId: '' }))
     .route(
       '/credits',
       createCreditsRoutes({
         browserosId,
-        gatewayBaseUrl: INLINED_ENV.BROWSEROS_CONFIG_URL
-          ? new URL(INLINED_ENV.BROWSEROS_CONFIG_URL).origin
-          : undefined,
+        gatewayBaseUrl: undefined,
       }),
     )
     .route(
@@ -160,6 +204,7 @@ export async function createHttpServer(config: HttpServerConfig) {
         registry,
         browser,
         executionDir,
+        defaultOutputDir: join(outputsDir, PATHS.MANUAL_OUTPUT_DIR_NAME),
         resourcesDir,
         klavisRef,
       }),
@@ -171,6 +216,7 @@ export async function createHttpServer(config: HttpServerConfig) {
         registry,
         browserosId,
         klavisRef,
+        defaultOutputDir: join(outputsDir, PATHS.MANUAL_OUTPUT_DIR_NAME),
         aiSdkDevtoolsEnabled: config.aiSdkDevtoolsEnabled,
       }),
     )
@@ -225,6 +271,26 @@ export async function createHttpServer(config: HttpServerConfig) {
   })
 
   logger.info('Consolidated HTTP Server started', { port, host })
+
+  goalLoopService
+    .resumeUnfinishedGoals({
+      statuses: ['running'],
+      maxItems: 1,
+      resumeReason: 'restart_resume',
+    })
+    .then((runs) => {
+      if (runs.length > 0) {
+        logger.info('Resumed unfinished Goal Loop runs after startup', {
+          count: runs.length,
+        })
+      }
+    })
+    .catch((err) =>
+      logger.warn('Failed to resume unfinished Goal Loop runs after startup', {
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    )
+  startGoalLoopWatchdog()
 
   if (config.aiSdkDevtoolsEnabled) {
     logger.info(

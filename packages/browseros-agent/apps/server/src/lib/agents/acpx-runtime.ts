@@ -6,6 +6,7 @@
 
 import { join } from 'node:path'
 import { DEFAULT_PORTS } from '@browseros/shared/constants/ports'
+import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import {
   type AcpRuntimeEvent,
   type AcpRuntimeHandle,
@@ -18,6 +19,7 @@ import {
   createAgentRegistry,
   createRuntimeStore,
 } from 'acpx/runtime'
+import { buildMcpServerSpecs } from '../../agent/mcp-builder'
 import { getBrowserosDir } from '../browseros-dir'
 import { logger } from '../logger'
 import { prepareAcpxAgentContext } from './acpx-agent-adapter'
@@ -69,6 +71,8 @@ interface PreparedRuntimeContext {
   commandIdentity: string
   useBrowserosMcp: boolean
   browserosMcpHost?: string
+  browserosMcpMode?: 'chat'
+  customMcpServers: NonNullable<AcpRuntimeOptions['mcpServers']>
 }
 
 export class AcpxRuntime implements AgentRuntime {
@@ -178,6 +182,8 @@ export class AcpxRuntime implements AgentRuntime {
       commandIdentity: prepared.commandIdentity,
       useBrowserosMcp: prepared.useBrowserosMcp,
       browserosMcpHost: prepared.browserosMcpHost,
+      browserosMcpMode: prepared.browserosMcpMode,
+      customMcpServers: prepared.customMcpServers,
     })
 
     return createAcpxEventStream(runtime, input, {
@@ -217,6 +223,10 @@ export class AcpxRuntime implements AgentRuntime {
       isSelectedCwd: !!input.cwd,
       message: input.message,
     })
+    const customMcpServers = await createAcpCustomMcpServers({
+      customMcpServers: input.customMcpServers,
+      chatMode: input.mode === 'chat',
+    })
     return {
       cwd: prepared.cwd,
       runtimeSessionKey: prepared.runtimeSessionKey,
@@ -225,6 +235,8 @@ export class AcpxRuntime implements AgentRuntime {
       commandIdentity: prepared.commandIdentity,
       useBrowserosMcp: prepared.useBrowserosMcp,
       browserosMcpHost: prepared.browserosMcpHost,
+      browserosMcpMode: input.mode === 'chat' ? 'chat' : undefined,
+      customMcpServers,
     }
   }
 
@@ -236,6 +248,8 @@ export class AcpxRuntime implements AgentRuntime {
     commandIdentity: string
     useBrowserosMcp: boolean
     browserosMcpHost?: string
+    browserosMcpMode?: 'chat'
+    customMcpServers: NonNullable<AcpRuntimeOptions['mcpServers']>
   }): AcpxCoreRuntime {
     const mcpHost = input.browserosMcpHost ?? '127.0.0.1'
     const key = JSON.stringify({
@@ -245,6 +259,8 @@ export class AcpxRuntime implements AgentRuntime {
       commandIdentity: input.commandIdentity,
       useBrowserosMcp: input.useBrowserosMcp,
       browserosMcpHost: mcpHost,
+      browserosMcpMode: input.browserosMcpMode,
+      customMcpServers: input.customMcpServers,
     })
     const existing = this.runtimes.get(key)
     if (existing) return existing
@@ -257,9 +273,14 @@ export class AcpxRuntime implements AgentRuntime {
         resourcesDir: this.resourcesDir,
         browserosDir: this.browserosDir,
       }),
-      mcpServers: input.useBrowserosMcp
-        ? createBrowserosMcpServers(this.browserosServerPort, mcpHost)
-        : [],
+      mcpServers: [
+        ...(input.useBrowserosMcp
+          ? createBrowserosMcpServers(this.browserosServerPort, mcpHost, {
+              mode: input.browserosMcpMode,
+            })
+          : []),
+        ...input.customMcpServers,
+      ],
       permissionMode: input.permissionMode,
       nonInteractivePermissions: input.nonInteractivePermissions,
     })
@@ -271,8 +292,10 @@ export class AcpxRuntime implements AgentRuntime {
       nonInteractivePermissions: input.nonInteractivePermissions,
       browserosServerPort: this.browserosServerPort,
       browserosMcpHost: mcpHost,
+      browserosMcpMode: input.browserosMcpMode,
       commandIdentity: input.commandIdentity,
       useBrowserosMcp: input.useBrowserosMcp,
+      customMcpServerCount: input.customMcpServers.length,
     })
     return runtime
   }
@@ -638,20 +661,41 @@ function createAcpxEventStream(
       })
     },
     cancel() {
-      void activeTurn?.cancel({ reason: 'BrowserOS stream cancelled' })
+      void activeTurn?.cancel({ reason: 'PannamOS stream cancelled' })
     },
   })
+}
+
+async function createAcpCustomMcpServers(input: {
+  customMcpServers?: AgentPromptInput['customMcpServers']
+  chatMode?: boolean
+}): Promise<NonNullable<AcpRuntimeOptions['mcpServers']>> {
+  if (input.chatMode) return []
+  if (!input.customMcpServers?.length) return []
+
+  const browserContext: BrowserContext = {
+    customMcpServers: [...input.customMcpServers],
+  }
+  const specs = await buildMcpServerSpecs({ browserContext })
+  return specs.map((spec) => ({
+    type: spec.transport === 'sse' ? 'sse' : 'http',
+    name: spec.name,
+    url: spec.url,
+    headers: [],
+  }))
 }
 
 function createBrowserosMcpServers(
   browserosServerPort: number,
   host = '127.0.0.1',
+  options: { mode?: 'chat' } = {},
 ): NonNullable<AcpRuntimeOptions['mcpServers']> {
+  const modeQuery = options.mode === 'chat' ? '?mode=chat' : ''
   return [
     {
       type: 'http',
-      name: 'browseros',
-      url: `http://${host}:${browserosServerPort}/mcp`,
+      name: 'pannamos',
+      url: `http://${host}:${browserosServerPort}/mcp${modeQuery}`,
       headers: [],
     },
   ]
@@ -700,7 +744,7 @@ function createBrowserosAgentRegistry(input: {
 
 /**
  * Resolve host-spawned Claude/Codex ACP adapters without asking acpx
- * to discover package bins. Packaged macOS builds prefer BrowserOS's
+ * to discover package bins. Packaged macOS builds prefer PannamOS's
  * bundled Bun so adapter package execution doesn't depend on host
  * `npx` or the app launch environment.
  */
@@ -754,7 +798,7 @@ async function applyRuntimeControls(
   if (input.agent.modelId && input.agent.modelId !== 'default') {
     events.push({
       type: 'status',
-      text: 'Requested model is stored on the BrowserOS agent, but this acpx/runtime version does not expose public model control. Using adapter default.',
+      text: 'Requested model is stored on the PannamOS agent, but this acpx/runtime version does not expose public model control. Using adapter default.',
     })
   }
   if (!input.agent.reasoningEffort) return events

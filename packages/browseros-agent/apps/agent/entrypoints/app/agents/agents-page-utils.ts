@@ -16,6 +16,7 @@ export function toHarnessListItem(agent: HarnessAgent): AgentListItem {
     runtimeLabel: formatHarnessAdapter(agent.adapter),
     modelLabel: agent.modelId ?? 'default',
     detail: `${agent.adapter}:main`,
+    roleLabel: agent.role?.roleName,
     canChat: true,
     canDelete: true,
   }

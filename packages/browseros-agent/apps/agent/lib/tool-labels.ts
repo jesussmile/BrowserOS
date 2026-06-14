@@ -70,7 +70,7 @@ const VERB_OVERRIDES: Record<string, string> = {
   web_search: 'Searched the web',
   web_fetch: 'Fetched URL',
 
-  // Klavis / external apps (Strata)
+  // External app tools
   connector_mcp_servers: 'Listed connected apps',
   discover_server_categories_or_actions: 'Browsed available actions',
   get_category_actions: 'Listed actions',
@@ -83,8 +83,8 @@ const VERB_OVERRIDES: Record<string, string> = {
   suggest_schedule: 'Suggested schedule',
   suggest_app_connection: 'Suggested app connect',
 
-  // BrowserOS info
-  browseros_info: 'Read BrowserOS info',
+  // PannamOS info
+  browseros_info: 'Read PannamOS info',
 
   // Windows
   list_windows: 'Listed windows',

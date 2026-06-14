@@ -16,6 +16,7 @@ interface ChatRouteDeps {
   registry: ToolRegistry
   browserosId?: string
   klavisRef?: KlavisProxyRef
+  defaultOutputDir?: string
   aiSdkDevtoolsEnabled?: boolean
 }
 
@@ -29,6 +30,7 @@ export function createChatRoutes(deps: ChatRouteDeps) {
     browser: deps.browser,
     registry: deps.registry,
     browserosId,
+    defaultOutputDir: deps.defaultOutputDir,
     aiSdkDevtoolsEnabled: deps.aiSdkDevtoolsEnabled,
   })
 

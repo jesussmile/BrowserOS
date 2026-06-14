@@ -3,7 +3,15 @@
  * Copyright 2025 BrowserOS
  */
 
-import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+  spyOn,
+} from 'bun:test'
 import { join } from 'node:path'
 
 const config = {
@@ -11,16 +19,55 @@ const config = {
   serverPort: 9100,
   agentPort: 9100,
   extensionPort: null,
-  resourcesDir: '/tmp/browseros-resources',
-  executionDir: '/tmp/browseros-execution',
+  resourcesDir: '/tmp/pannamos-resources',
+  storageRoot: '/tmp/pannamos-storage',
+  executionDir: '/tmp/pannamos-execution',
+  outputsDir: '/tmp/pannamos-storage/Outputs',
   mcpAllowRemote: false,
   aiSdkDevtoolsEnabled: false,
 }
 
 describe('Application.start', () => {
+  const originalBrowserosDir = process.env.BROWSEROS_DIR
+  const originalStorageRoot = process.env.PANNAMOS_STORAGE_ROOT
+  const originalOutputsDir = process.env.PANNAMOS_OUTPUTS_DIR
+
+  beforeEach(() => {
+    if (originalBrowserosDir === undefined) {
+      delete process.env.BROWSEROS_DIR
+    } else {
+      process.env.BROWSEROS_DIR = originalBrowserosDir
+    }
+    if (originalStorageRoot === undefined) {
+      delete process.env.PANNAMOS_STORAGE_ROOT
+    } else {
+      process.env.PANNAMOS_STORAGE_ROOT = originalStorageRoot
+    }
+    if (originalOutputsDir === undefined) {
+      delete process.env.PANNAMOS_OUTPUTS_DIR
+    } else {
+      process.env.PANNAMOS_OUTPUTS_DIR = originalOutputsDir
+    }
+  })
+
   afterEach(() => {
     mock.restore()
     mock.clearAllMocks()
+    if (originalBrowserosDir === undefined) {
+      delete process.env.BROWSEROS_DIR
+    } else {
+      process.env.BROWSEROS_DIR = originalBrowserosDir
+    }
+    if (originalStorageRoot === undefined) {
+      delete process.env.PANNAMOS_STORAGE_ROOT
+    } else {
+      process.env.PANNAMOS_STORAGE_ROOT = originalStorageRoot
+    }
+    if (originalOutputsDir === undefined) {
+      delete process.env.PANNAMOS_OUTPUTS_DIR
+    } else {
+      process.env.PANNAMOS_OUTPUTS_DIR = originalOutputsDir
+    }
   })
 
   it('starts with the CDP backend only', async () => {
@@ -66,27 +113,31 @@ describe('Application.start', () => {
     expect(hermesService.executeAction).not.toHaveBeenCalled()
   })
 
-  it('stores the database below the BrowserOS directory instead of the execution directory', async () => {
-    const originalBrowserosDir = process.env.BROWSEROS_DIR
-    process.env.BROWSEROS_DIR = '/tmp/browseros-dogfood'
+  it('uses configured execution directory for database state', async () => {
+    process.env.BROWSEROS_DIR = '/tmp/pannamos-dogfood'
 
-    try {
-      const { Application, initializeDb } = await setupApplicationTest()
-      const app = new Application(config)
+    const { Application, initializeDb } = await setupApplicationTest()
+    const app = new Application(config)
 
-      await app.start()
+    await app.start()
 
-      expect(initializeDb).toHaveBeenCalledWith({
-        dbPath: join('/tmp/browseros-dogfood', 'db', 'browseros.sqlite'),
-        resourcesDir: config.resourcesDir,
-      })
-    } finally {
-      if (originalBrowserosDir === undefined) {
-        delete process.env.BROWSEROS_DIR
-      } else {
-        process.env.BROWSEROS_DIR = originalBrowserosDir
-      }
-    }
+    expect(initializeDb).toHaveBeenCalledWith({
+      dbPath: join(config.executionDir, 'db', 'pannamos.sqlite'),
+      resourcesDir: config.resourcesDir,
+    })
+  })
+
+  it('uses a configured execution directory as local state when no PannamOS directory override is set', async () => {
+    delete process.env.BROWSEROS_DIR
+    const { Application, initializeDb } = await setupApplicationTest()
+    const app = new Application(config)
+
+    await app.start()
+
+    expect(initializeDb).toHaveBeenCalledWith({
+      dbPath: join(config.executionDir, 'db', 'pannamos.sqlite'),
+      resourcesDir: config.resourcesDir,
+    })
   })
 })
 
@@ -118,8 +169,8 @@ async function setupApplicationTest() {
   const initializeDb = spyOn(dbModule, 'initializeDb').mockImplementation(
     () =>
       ({
-        path: '/tmp/browseros-state/db/browseros.sqlite',
-        migrationsDir: '/tmp/browseros-resources/db/migrations',
+        path: '/tmp/pannamos-state/db/pannamos.sqlite',
+        migrationsDir: '/tmp/pannamos-resources/db/migrations',
         sqlite: { close: () => {} },
         db: {},
       }) as never,

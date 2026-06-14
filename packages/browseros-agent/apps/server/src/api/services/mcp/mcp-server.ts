@@ -21,9 +21,12 @@ export interface McpServiceDeps {
   registry: ToolRegistry
   browser: Browser
   executionDir: string
+  defaultOutputDir?: string
   resourcesDir: string
   klavisRef?: KlavisProxyRef
   observer?: ToolExecutionObserver
+  allowedToolNames?: ReadonlySet<string>
+  externalToolsEnabled?: boolean
   // Per-request default windowId from the X-BrowserOS-Default-Window-Id
   // header. When set, tool handlers inject this into args.windowId for
   // any tool whose zod input schema has a `windowId` field and whose
@@ -37,7 +40,7 @@ export function createMcpServer(deps: McpServiceDeps): McpServer {
   const server = new McpServer(
     {
       name: 'browseros_mcp',
-      title: 'BrowserOS MCP server',
+      title: 'PannamOS MCP server',
       version: deps.version,
     },
     { capabilities: { logging: {} }, instructions: MCP_INSTRUCTIONS },
@@ -52,14 +55,16 @@ export function createMcpServer(deps: McpServiceDeps): McpServer {
     browser: deps.browser,
     directories: {
       workingDir: deps.executionDir,
+      defaultOutputDir: deps.defaultOutputDir,
       resourcesDir: deps.resourcesDir,
     },
     observer: deps.observer,
     defaultWindowId: deps.defaultWindowId,
+    allowedToolNames: deps.allowedToolNames,
   })
 
   // Register Klavis proxy tools (if connected via background init)
-  if (deps.klavisRef?.handle) {
+  if (deps.externalToolsEnabled !== false && deps.klavisRef?.handle) {
     registerKlavisTools(server, deps.klavisRef.handle, deps.observer)
   }
 

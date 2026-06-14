@@ -50,7 +50,6 @@ export function useOAuthProviderFlow(
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional — only trigger on auth status change
   useEffect(() => {
     if (!status?.authenticated) return
-    if (!flowStartedRef.current) return
     if (providers.some((p) => p.type === config.providerType)) return
 
     const now = Date.now()
@@ -68,12 +67,14 @@ export function useOAuthProviderFlow(
         updatedAt: now,
       })
       setPendingDeviceCode(null)
-      track(config.completedEvent, { email: status.email })
-      toast.success(`${config.displayName} Connected`, {
-        description: status.email
-          ? `Authenticated as ${status.email}`
-          : `Successfully authenticated with ${config.displayName}`,
-      })
+      if (flowStartedRef.current) {
+        track(config.completedEvent, { email: status.email })
+        toast.success(`${config.displayName} Connected`, {
+          description: status.email
+            ? `Authenticated as ${status.email}`
+            : `Successfully authenticated with ${config.displayName}`,
+        })
+      }
     } catch (err) {
       toast.error(`Failed to create ${config.displayName} provider`, {
         description: err instanceof Error ? err.message : 'Unknown error',

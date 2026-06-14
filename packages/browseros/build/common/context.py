@@ -7,6 +7,7 @@ BuildConfig, ArtifactRegistry, EnvConfig) to avoid god object anti-pattern.
 The old interface is maintained for backward compatibility during the migration.
 """
 
+import os
 import time
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -21,6 +22,7 @@ from .utils import (
 )
 from .env import EnvConfig
 from .paths import get_package_root
+from .product_identity import PANNAMOS_PRODUCT_IDENTITY
 
 
 # =============================================================================
@@ -154,7 +156,7 @@ class BuildConfig:
         # App names - will be set based on platform
         self.CHROMIUM_APP_NAME = ""
         self.BROWSEROS_APP_NAME = ""
-        self.BROWSEROS_APP_BASE_NAME = "BrowserOS"
+        self.BROWSEROS_APP_BASE_NAME = PANNAMOS_PRODUCT_IDENTITY.app_base_name
 
         # Third party versions
         self.SPARKLE_VERSION = "2.7.0"
@@ -201,7 +203,9 @@ class Context:
     # App names - will be set based on platform
     CHROMIUM_APP_NAME: str = ""
     BROWSEROS_APP_NAME: str = ""
-    BROWSEROS_APP_BASE_NAME: str = "BrowserOS"  # Base name without extension
+    BROWSEROS_APP_BASE_NAME: str = (
+        PANNAMOS_PRODUCT_IDENTITY.app_base_name
+    )  # Base name without extension
 
     # Third party
     SPARKLE_VERSION: str = "2.7.0"
@@ -424,9 +428,16 @@ class Context:
         return f"https://github.com/sparkle-project/Sparkle/releases/download/{self.SPARKLE_VERSION}/Sparkle-{self.SPARKLE_VERSION}.tar.xz"
 
     def get_extensions_manifest_url(self) -> str:
-        """Get CDN URL for bundled extensions update manifest"""
-        # return "https://cdn.browseros.com/extensions/update-manifest.xml"
-        return "https://cdn.browseros.com/extensions/update-manifest.alpha.xml"
+        """Get approved private extension update manifest URL.
+
+        PannamOS private builds must not silently pull BrowserOS public
+        extension updates. Provide PANNAMOS_EXTENSIONS_MANIFEST_URL only after
+        a private extension hosting/signing decision is made.
+        """
+        return os.environ.get(
+            "PANNAMOS_EXTENSIONS_MANIFEST_URL",
+            "https://browseros.invalid/extensions/update-manifest.xml",
+        )
 
     def get_entitlements_dir(self) -> Path:
         """Get entitlements directory"""

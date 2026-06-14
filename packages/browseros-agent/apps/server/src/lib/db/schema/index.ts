@@ -5,4 +5,5 @@
  */
 
 export * from './agents'
+export * from './local-sessions'
 export * from './oauth'

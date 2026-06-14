@@ -57,7 +57,7 @@ export async function withMcpServer(
     const config = await ensureBrowserOS()
 
     const client = new Client({
-      name: 'browseros-test-client',
+      name: 'pannamos-test-client',
       version: '1.0.0',
     })
 

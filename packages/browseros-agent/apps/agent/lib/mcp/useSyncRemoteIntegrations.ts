@@ -11,16 +11,11 @@ export interface SyncStatus {
 }
 
 /**
- * Syncs remote Klavis integrations into local Chrome storage.
+ * Syncs local app integration metadata into local Chrome storage.
  *
- * Klavis ties integrations to an email address, so connecting Gmail on device A
- * and Slack on device A means device B (same email) also has Slack authenticated.
- * But local Chrome storage on device B won't know about Slack.
- *
- * This hook detects authenticated remote integrations missing from local storage
- * and adds them so they appear in the UI (and can be disconnected).
- *
- * Returns sync status so consumers can gate behavior on sync completion.
+ * In the private build this reads from the local server only. BrowserOS cloud
+ * app sync is disabled, so catalog entries stay local until a custom MCP server
+ * is configured by the user.
  */
 export function useSyncRemoteIntegrations(): SyncStatus {
   const { data: userMCPIntegrations, isLoading: isIntegrationsLoading } =

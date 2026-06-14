@@ -5,13 +5,23 @@
  */
 
 import { AGENT_HARNESS_LIMITS } from '@browseros/shared/constants/limits'
+import { getBrowserOSRoleTemplate } from '@browseros/shared/constants/role-aware-agents'
 import {
   type BrowserContext,
   BrowserContextSchema,
 } from '@browseros/shared/schemas/browser-context'
+import type {
+  BrowserOSAgentRoleId,
+  BrowserOSCustomRoleInput,
+} from '@browseros/shared/types/role-aware-agents'
 import { type Context, Hono } from 'hono'
 import { stream } from 'hono/streaming'
-import { formatUserMessage } from '../../agent/format-message'
+import {
+  type FormattableAttachment,
+  formatUserMessage,
+} from '../../agent/format-message'
+import { getModeInstruction } from '../../agent/mode-instructions'
+import type { AgentMode } from '../../agent/types'
 import type { Browser } from '../../browser/browser'
 import { createAcpUIMessageStreamResponse } from '../../lib/agents/acp-ui-message-stream'
 import type {
@@ -57,6 +67,8 @@ type AgentRouteService = {
     baseUrl?: string
     apiKey?: string
     supportsImages?: boolean
+    roleId?: BrowserOSAgentRoleId
+    customRole?: BrowserOSCustomRoleInput
   }): Promise<AgentDefinition>
   getAgent(agentId: string): Promise<AgentDefinition | null>
   deleteAgent(agentId: string): Promise<boolean>
@@ -68,7 +80,9 @@ type AgentRouteService = {
   startTurn(input: {
     agentId: string
     message: string
+    mode?: AgentMode
     attachments?: ReadonlyArray<{ mediaType: string; data: string }>
+    customMcpServers?: BrowserContext['customMcpServers']
     cwd?: string
   }): Promise<{ turnId: string; frames: ReadableStream<TurnFrame> }>
   attachTurn(input: {
@@ -108,11 +122,13 @@ type AgentRouteDeps = {
 type SidepanelAgentChatRequest = {
   conversationId: string
   message: string
+  mode: AgentMode
   browserContext?: BrowserContext
   selectedText?: string
   selectedTextSource?: { url: string; title: string }
   userSystemPrompt?: string
   userWorkingDir?: string
+  attachments?: FormattableAttachment[]
 }
 
 export function createAgentRoutes(deps: AgentRouteDeps = {}) {
@@ -175,16 +191,24 @@ export function createAgentRoutes(deps: AgentRouteDeps = {}) {
           browserContext,
           parsed.selectedText,
           parsed.selectedTextSource,
+          parsed.attachments,
         )
-        const message = parsed.userSystemPrompt?.trim()
-          ? `${parsed.userSystemPrompt.trim()}\n\n${userContent}`
-          : userContent
+        const message = [
+          getModeInstruction({ mode: parsed.mode }),
+          parsed.userSystemPrompt?.trim(),
+          userContent,
+        ]
+          .filter(Boolean)
+          .join('\n\n')
 
         let started: { turnId: string; frames: ReadableStream<TurnFrame> }
         try {
           started = await service.startTurn({
             agentId: agent.id,
             message,
+            mode: parsed.mode,
+            attachments: imageAttachmentsToInline(parsed.attachments),
+            customMcpServers: browserContext?.customMcpServers,
             cwd: parsed.userWorkingDir,
           })
         } catch (err) {
@@ -491,6 +515,8 @@ async function parseCreateAgentBody(c: Context<Env>): Promise<
       baseUrl?: string
       apiKey?: string
       supportsImages?: boolean
+      roleId?: BrowserOSAgentRoleId
+      customRole?: BrowserOSCustomRoleInput
     }
   | { error: string }
 > {
@@ -528,6 +554,17 @@ async function parseCreateAgentBody(c: Context<Env>): Promise<
   if (!isSupportedReasoningEffort(record.adapter, reasoningEffort)) {
     return { error: 'Invalid reasoningEffort' }
   }
+  const roleId = readOptionalAgentRoleId(record)
+  if (roleId === null) {
+    return { error: 'Invalid roleId' }
+  }
+  const customRole = readOptionalCustomRole(record)
+  if (customRole === null) {
+    return { error: 'Invalid customRole' }
+  }
+  if (roleId && customRole) {
+    return { error: 'roleId and customRole cannot both be set' }
+  }
 
   return {
     name,
@@ -542,7 +579,105 @@ async function parseCreateAgentBody(c: Context<Env>): Promise<
       typeof record.supportsImages === 'boolean'
         ? record.supportsImages
         : undefined,
+    roleId,
+    customRole,
   }
+}
+
+function readOptionalAgentRoleId(
+  record: Record<string, unknown>,
+): BrowserOSAgentRoleId | undefined | null {
+  const roleId = readOptionalTrimmedString(record, 'roleId')
+  if (!roleId) return undefined
+  return getBrowserOSRoleTemplate(roleId)
+    ? (roleId as BrowserOSAgentRoleId)
+    : null
+}
+
+function readOptionalCustomRole(
+  record: Record<string, unknown>,
+): BrowserOSCustomRoleInput | undefined | null {
+  const value = record.customRole
+  if (value === undefined) return undefined
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+
+  const role = value as Record<string, unknown>
+  const name = readOptionalTrimmedString(role, 'name')
+  const shortDescription = readOptionalTrimmedString(role, 'shortDescription')
+  const longDescription = readOptionalTrimmedString(role, 'longDescription')
+  if (!name || !shortDescription || !longDescription) return null
+
+  const recommendedApps = Array.isArray(role.recommendedApps)
+    ? role.recommendedApps.filter(
+        (entry): entry is string => typeof entry === 'string',
+      )
+    : []
+  if (
+    Array.isArray(role.recommendedApps) &&
+    recommendedApps.length !== role.recommendedApps.length
+  ) {
+    return null
+  }
+
+  const boundaries = Array.isArray(role.boundaries)
+    ? role.boundaries.flatMap((entry) => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+          return []
+        }
+        const boundary = entry as Record<string, unknown>
+        const key = readOptionalTrimmedString(boundary, 'key')
+        const label = readOptionalTrimmedString(boundary, 'label')
+        const description = readOptionalTrimmedString(boundary, 'description')
+        const defaultMode = readBoundaryMode(boundary.defaultMode)
+        if (!key || !label || !description || !defaultMode) {
+          return []
+        }
+        return [{ key, label, description, defaultMode }]
+      })
+    : []
+  if (
+    Array.isArray(role.boundaries) &&
+    boundaries.length !== role.boundaries.length
+  ) {
+    return null
+  }
+
+  const bootstrap = parseCustomRoleBootstrap(role.bootstrap)
+  if (bootstrap === null) return null
+
+  return {
+    name,
+    shortDescription,
+    longDescription,
+    recommendedApps,
+    boundaries,
+    ...(bootstrap ? { bootstrap } : {}),
+  }
+}
+
+function readBoundaryMode(
+  value: unknown,
+): 'allow' | 'ask' | 'block' | undefined {
+  return value === 'allow' || value === 'ask' || value === 'block'
+    ? value
+    : undefined
+}
+
+function parseCustomRoleBootstrap(
+  value: unknown,
+): BrowserOSCustomRoleInput['bootstrap'] | undefined | null {
+  if (value === undefined) return undefined
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+
+  const record = value as Record<string, unknown>
+  const bootstrap = {
+    agentsMd: readOptionalString(record, 'agentsMd'),
+    soulMd: readOptionalString(record, 'soulMd'),
+    toolsMd: readOptionalString(record, 'toolsMd'),
+  }
+  return Object.values(bootstrap).some((entry) => entry !== undefined)
+    ? bootstrap
+    : undefined
 }
 
 /**
@@ -562,6 +697,7 @@ export interface InboundImageAttachment {
 // server has to validate independently.
 const MAX_CHAT_ATTACHMENTS = 10
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024 // 5 MB raw, post-decode
+const MAX_FILE_TEXT_BYTES = 1 * 1024 * 1024
 // data: URLs encode bytes as base64 (~4/3 inflation) plus the
 // `data:<mime>;base64,` prefix; cap the encoded string against that
 // rather than 2× the raw budget.
@@ -572,6 +708,10 @@ const ALLOWED_IMAGE_MEDIA_TYPES = new Set([
   'image/jpg',
   'image/webp',
   'image/gif',
+])
+const ALLOWED_TEXT_ATTACHMENT_MEDIA_TYPES = new Set([
+  'application/json',
+  'application/pdf',
 ])
 
 /**
@@ -603,54 +743,28 @@ async function parseChatBody(
 > {
   const body = await readJsonBody(c)
   if ('error' in body) return body
-  const message =
+  const rawMessage =
     typeof body.value.message === 'string' ? body.value.message.trim() : ''
-  const attachmentsRaw = Array.isArray(body.value.attachments)
-    ? body.value.attachments
-    : []
-  if (attachmentsRaw.length > MAX_CHAT_ATTACHMENTS) {
-    return {
-      error: `at most ${MAX_CHAT_ATTACHMENTS} attachments are allowed per message`,
-    }
-  }
-  const attachments: InboundImageAttachment[] = []
-  for (const entry of attachmentsRaw) {
-    if (!entry || typeof entry !== 'object') {
-      return { error: 'invalid attachment entry' }
-    }
-    const record = entry as Record<string, unknown>
-    if (record.kind !== 'image') {
-      return { error: 'attachment kind must be "image"' }
-    }
-    const mediaType =
-      typeof record.mediaType === 'string' ? record.mediaType : ''
-    const dataUrl = typeof record.dataUrl === 'string' ? record.dataUrl : ''
-    if (!ALLOWED_IMAGE_MEDIA_TYPES.has(mediaType)) {
-      return {
-        error: `unsupported image type: ${mediaType || 'unknown'}`,
-      }
-    }
-    if (!dataUrl.startsWith('data:')) {
-      return { error: 'image attachment must include a data: URL' }
-    }
-    if (dataUrl.length > MAX_IMAGE_DATA_URL_LENGTH) {
-      return { error: `image exceeds ${MAX_IMAGE_BYTES} bytes` }
-    }
-    // Strip the `data:<mime>;base64,` prefix — ACP image blocks carry
-    // raw base64 plus the mime type as separate fields.
-    const commaIdx = dataUrl.indexOf(',')
-    const data = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl
-    if (!data) {
-      return { error: 'image attachment payload is empty' }
-    }
-    attachments.push({ mediaType, data })
-  }
-  if (!message && attachments.length === 0) {
+  const attachments = parseSidepanelAttachments(body.value.attachments)
+  if ('error' in attachments) return attachments
+  if (!rawMessage && attachments.value.length === 0) {
     return { error: 'Message is required' }
   }
+  const hasFileAttachments = attachments.value.some(
+    (attachment) => attachment.kind === 'file',
+  )
+  const message = hasFileAttachments
+    ? formatUserMessage(
+        rawMessage,
+        undefined,
+        undefined,
+        undefined,
+        attachments.value,
+      )
+    : rawMessage
   return {
     message,
-    attachments,
+    attachments: imageAttachmentsToInline(attachments.value) ?? [],
     cwd:
       readOptionalTrimmedString(body.value, 'cwd') ??
       readOptionalTrimmedString(body.value, 'userWorkingDir'),
@@ -669,8 +783,15 @@ async function parseSidepanelAgentChatBody(
     return { error: 'conversationId must be a UUID' }
   }
 
-  const message = readOptionalTrimmedString(record, 'message')
-  if (!message) return { error: 'Message is required' }
+  const attachments = parseSidepanelAttachments(record.attachments)
+  if ('error' in attachments) return attachments
+
+  const message = readOptionalTrimmedString(record, 'message') ?? ''
+  if (!message && attachments.value.length === 0) {
+    return { error: 'Message is required' }
+  }
+  const mode = parseAgentMode(record.mode)
+  if ('error' in mode) return mode
 
   const browserContext = parseBrowserContext(record.browserContext)
   if ('error' in browserContext) return browserContext
@@ -682,12 +803,111 @@ async function parseSidepanelAgentChatBody(
   return {
     conversationId,
     message,
+    mode: mode.value,
     browserContext: browserContext.value,
     selectedText,
     selectedTextSource: selectedTextSource.value,
     userSystemPrompt: readOptionalString(record, 'userSystemPrompt'),
     userWorkingDir: readOptionalTrimmedString(record, 'userWorkingDir'),
+    attachments: attachments.value,
   }
+}
+
+function parseSidepanelAttachments(
+  value: unknown,
+): { value: FormattableAttachment[] } | { error: string } {
+  const attachmentsRaw = Array.isArray(value) ? value : []
+  if (attachmentsRaw.length > MAX_CHAT_ATTACHMENTS) {
+    return {
+      error: `at most ${MAX_CHAT_ATTACHMENTS} attachments are allowed per message`,
+    }
+  }
+
+  const attachments: FormattableAttachment[] = []
+  for (const entry of attachmentsRaw) {
+    if (!entry || typeof entry !== 'object') {
+      return { error: 'invalid attachment entry' }
+    }
+    const record = entry as Record<string, unknown>
+    const kind = record.kind
+    const mediaType =
+      typeof record.mediaType === 'string' ? record.mediaType : ''
+    const name = readOptionalString(record, 'name')
+
+    if (kind === 'image') {
+      const dataUrl = typeof record.dataUrl === 'string' ? record.dataUrl : ''
+      if (!ALLOWED_IMAGE_MEDIA_TYPES.has(mediaType)) {
+        return { error: `unsupported image type: ${mediaType || 'unknown'}` }
+      }
+      if (!dataUrl.startsWith('data:')) {
+        return { error: 'image attachment must include a data: URL' }
+      }
+      if (dataUrl.length > MAX_IMAGE_DATA_URL_LENGTH) {
+        return { error: `image exceeds ${MAX_IMAGE_BYTES} bytes` }
+      }
+      attachments.push({ kind: 'image', mediaType, dataUrl, name })
+      continue
+    }
+
+    if (kind === 'file') {
+      const text = typeof record.text === 'string' ? record.text : ''
+      if (
+        !mediaType.startsWith('text/') &&
+        !ALLOWED_TEXT_ATTACHMENT_MEDIA_TYPES.has(mediaType)
+      ) {
+        return { error: `unsupported file type: ${mediaType || 'unknown'}` }
+      }
+      if (text.length > MAX_FILE_TEXT_BYTES) {
+        return { error: `file attachment exceeds ${MAX_FILE_TEXT_BYTES} bytes` }
+      }
+      attachments.push({
+        kind: 'file',
+        mediaType,
+        name: name ?? 'attachment',
+        text,
+      })
+      continue
+    }
+
+    return { error: 'invalid attachment kind' }
+  }
+
+  return { value: attachments }
+}
+
+function imageAttachmentsToInline(
+  attachments: FormattableAttachment[] | undefined,
+): InboundImageAttachment[] | undefined {
+  const images = (attachments ?? [])
+    .filter((attachment) => attachment.kind === 'image')
+    .map((attachment) => {
+      const commaIdx = attachment.dataUrl.indexOf(',')
+      const data =
+        commaIdx >= 0
+          ? attachment.dataUrl.slice(commaIdx + 1)
+          : attachment.dataUrl
+      return { mediaType: attachment.mediaType, data }
+    })
+    .filter((image) => image.data)
+  return images.length ? images : undefined
+}
+
+function parseAgentMode(
+  value: unknown,
+): { value: AgentMode } | { error: string } {
+  if (value === undefined || value === null || value === '') {
+    return { value: 'goal' }
+  }
+  if (
+    value === 'chat' ||
+    value === 'research' ||
+    value === 'workflow' ||
+    value === 'agent' ||
+    value === 'goal'
+  ) {
+    return { value }
+  }
+  return { error: 'Invalid mode' }
 }
 
 function parseBrowserContext(

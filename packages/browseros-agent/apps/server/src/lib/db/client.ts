@@ -35,7 +35,9 @@ const sourceMigrationsDir = fileURLToPath(
 /** Opens BrowserOS SQLite and applies checked-in Drizzle migrations before callers use the DB. */
 export function openBrowserOsDatabase(options: OpenDbOptions): DbHandle {
   const migrationsDir = resolveMigrationsDir(options)
-  mkdirSync(dirname(options.dbPath), { recursive: true })
+  if (options.dbPath !== ':memory:') {
+    mkdirSync(dirname(options.dbPath), { recursive: true })
+  }
 
   const sqlite = new BunDatabase(options.dbPath)
   sqlite.exec('PRAGMA journal_mode = WAL')

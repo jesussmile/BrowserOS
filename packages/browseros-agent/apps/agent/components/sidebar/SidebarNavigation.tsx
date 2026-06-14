@@ -1,4 +1,4 @@
-import { CalendarClock, Home, PlugZap, Settings } from 'lucide-react'
+import { Bot, CalendarClock, Home, PlugZap, Settings } from 'lucide-react'
 import type { FC } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import {
@@ -24,6 +24,7 @@ type NavItem = {
 
 const primaryNavItems: NavItem[] = [
   { name: 'Home', to: '/home', icon: Home },
+  { name: 'Agents & Skills', to: '/settings/ai', icon: Bot },
   {
     name: 'Connect Apps',
     to: '/connect-apps',
@@ -33,14 +34,18 @@ const primaryNavItems: NavItem[] = [
   { name: 'Scheduled Tasks', to: '/scheduled', icon: CalendarClock },
   {
     name: 'Settings',
-    to: '/settings/ai',
+    to: '/settings/customization',
     icon: Settings,
   },
 ]
 
 function isNavItemActive(item: NavItem, pathname: string): boolean {
   if (item.to === '/settings/ai') {
-    return pathname.startsWith('/settings')
+    return pathname === '/settings/ai'
+  }
+
+  if (item.to === '/settings/customization') {
+    return pathname.startsWith('/settings') && pathname !== '/settings/ai'
   }
 
   return pathname === item.to

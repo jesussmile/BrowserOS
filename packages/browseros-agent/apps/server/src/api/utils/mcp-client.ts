@@ -29,13 +29,13 @@ export async function callMcpTool<T = Record<string, unknown>>(
   args: Record<string, unknown> = {},
 ): Promise<McpToolResult<T>> {
   const client = new Client({
-    name: 'browseros-sdk-internal',
+    name: 'pannamos-sdk-internal',
     version: '1.0.0',
   })
 
   const transport = new StreamableHTTPClientTransport(new URL(serverUrl), {
     requestInit: {
-      headers: { 'X-BrowserOS-Source': 'sdk-internal' },
+      headers: { 'X-PannamOS-Source': 'sdk-internal' },
     },
   })
 

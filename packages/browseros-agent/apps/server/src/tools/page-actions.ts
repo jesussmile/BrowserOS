@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, rename, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { z } from 'zod'
 import { defineTool, resolveWorkingPath } from './framework'
 
@@ -30,6 +30,7 @@ export const save_pdf = defineTool({
   handler: async (args, ctx, response) => {
     const resolvedPath = resolveWorkingPath(ctx, args.path, args.cwd)
     const { data } = await ctx.browser.printToPDF(args.page)
+    await mkdir(dirname(resolvedPath), { recursive: true })
     await Bun.write(resolvedPath, Buffer.from(data, 'base64'))
     response.text(`Saved PDF to ${resolvedPath}`)
     response.data({
@@ -84,6 +85,7 @@ export const save_screenshot = defineTool({
       quality: args.quality,
       fullPage: args.fullPage,
     })
+    await mkdir(dirname(resolvedPath), { recursive: true })
     await Bun.write(resolvedPath, Buffer.from(data, 'base64'))
     response.text(`Saved screenshot to ${resolvedPath}`)
     response.data({
@@ -122,9 +124,11 @@ export const download_file = defineTool({
   }),
   handler: async (args, ctx, response) => {
     const resolvedDir = resolveWorkingPath(ctx, args.path, args.cwd)
-    const baseDir = ctx.directories.workingDir ?? tmpdir()
+    const baseDir =
+      ctx.directories.workingDir ?? ctx.directories.defaultOutputDir ?? tmpdir()
+    await mkdir(resolvedDir, { recursive: true })
     await mkdir(baseDir, { recursive: true })
-    const tempDir = await mkdtemp(join(baseDir, 'browseros-dl-'))
+    const tempDir = await mkdtemp(join(baseDir, 'pannamos-dl-'))
 
     try {
       const { filePath, suggestedFilename } =

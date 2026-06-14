@@ -41,7 +41,7 @@ index 0000000000000..6251f1274bcc6
 +// Path Utilities
 +// =============================================================================
 +
-+// Returns the execution directory under user data (~/.browseros or equivalent).
++// Returns the execution directory under user data (~/.pannamos or equivalent).
 +// Creates the directory if it doesn't exist.
 +base::FilePath GetExecutionDir();
 +

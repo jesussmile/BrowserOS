@@ -11,7 +11,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sync"
-	"syscall"
 	"time"
 
 	"browseros-dogfood/config"
@@ -152,7 +151,7 @@ func startBackgroundProcess(paths runPaths, headless bool, refreshProfile bool) 
 	cmd := exec.Command(exe, daemonArgsWithOptions(headless, refreshProfile)...)
 	cmd.Stdout = rawLog
 	cmd.Stderr = rawLog
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	configureBackgroundProcess(cmd)
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -300,7 +299,7 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 	defer server.Stop()
 
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	notifyShutdownSignals(sigCh)
 	go func() {
 		select {
 		case <-sigCh:

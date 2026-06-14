@@ -12,6 +12,7 @@ import {
   rm,
   writeFile,
 } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { VmNotReadyError } from '../../../src/lib/vm/errors'
 import { VM_NAME } from '../../../src/lib/vm/paths'
@@ -26,10 +27,10 @@ describe('VmRuntime', () => {
   let templatePath: string
 
   beforeEach(async () => {
-    root = await mkdtemp('/tmp/vmrt-')
+    root = await mkdtemp(join(tmpdir(), 'vmrt-'))
     limaHome = join(root, 'lima')
     logPath = join(root, 'limactl.log')
-    templatePath = join(root, 'browseros-vm.yaml')
+    templatePath = join(root, 'pannamos-vm.yaml')
     await writeFile(templatePath, 'minimumLimaVersion: 2.0.0\nmounts: []\n')
   })
 
@@ -148,7 +149,7 @@ describe('VmRuntime', () => {
     const log = await readFile(logPath, 'utf8')
     expect(log).toContain(`lima-${VM_NAME} 'nerdctl' 'info'`)
     expect(log).toContain(
-      `lima-${VM_NAME} 'sh' '-lc' 'cat /etc/browseros-vm-version 2>/dev/null || true'`,
+      `lima-${VM_NAME} 'sh' '-lc' 'cat /etc/pannamos-vm-version 2>/dev/null || true'`,
     )
     expect(log).toContain(`ARGS:stop ${VM_NAME}`)
     expect(log).toContain(`ARGS:delete --force ${VM_NAME}`)
@@ -316,6 +317,10 @@ async function fakeRootfulThenReadySsh(
   root: string,
   logPath: string,
 ): Promise<string> {
+  if (process.platform === 'win32') {
+    return fakeRootfulThenReadySshForWindows(root, logPath)
+  }
+
   const path = join(root, 'ssh-rootful-then-ready')
   const counterPath = join(root, 'ssh-rootful-then-ready.count')
   const body = `#!/usr/bin/env bash
@@ -340,5 +345,39 @@ esac
 `
   await writeFile(path, body)
   await chmod(path, 0o755)
+  return path
+}
+
+async function fakeRootfulThenReadySshForWindows(
+  root: string,
+  logPath: string,
+): Promise<string> {
+  const path = join(root, 'ssh-rootful-then-ready.cmd')
+  const scriptPath = join(root, 'ssh-rootful-then-ready.mjs')
+  const counterPath = join(root, 'ssh-rootful-then-ready.count')
+  const script = `import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
+
+const logPath = ${JSON.stringify(logPath)}
+const counterPath = ${JSON.stringify(counterPath)}
+const args = process.argv.slice(2)
+const count = existsSync(counterPath)
+  ? Number(readFileSync(counterPath, 'utf8') || '0')
+  : 0
+
+appendFileSync(logPath, 'ARGS:' + args.join(' ') + '\\n')
+writeFileSync(counterPath, String(count + 1))
+
+if (count === 0) {
+  console.error('rootless containerd not running')
+  process.exit(1)
+}
+if (count === 1) {
+  process.stdout.write('runtime:containerd\\n')
+  process.exit(0)
+}
+process.exit(0)
+`
+  await writeFile(scriptPath, script)
+  await writeFile(path, `@"${process.execPath}" "${scriptPath}" %*\r\n`)
   return path
 }

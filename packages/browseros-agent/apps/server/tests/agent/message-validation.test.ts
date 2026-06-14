@@ -16,6 +16,7 @@ import { describe, expect, it } from 'bun:test'
 import type { UIMessage } from 'ai'
 import {
   hasMessageContent,
+  sanitizeIncompleteToolCalls,
   sanitizeMessagesForToolset,
 } from '../../src/agent/message-validation'
 
@@ -253,6 +254,91 @@ describe('sanitizeMessagesForToolset', () => {
     expect(result).toHaveLength(1)
     expect(result[0].parts).toHaveLength(1)
     expect(result[0].parts[0].type).toBe('text')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// sanitizeIncompleteToolCalls
+// ---------------------------------------------------------------------------
+
+describe('sanitizeIncompleteToolCalls', () => {
+  it('strips stale approval-requested tool parts before a normal continuation', () => {
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        { type: 'text', text: 'Waiting for approval' },
+        {
+          type: 'tool-click',
+          toolCallId: 'call-1',
+          state: 'approval-requested',
+          input: { page: 1, element: 2 },
+          approval: { id: 'approval-1' },
+        } as unknown as UIMessage['parts'][number],
+      ]),
+      makeUserMessage('continue'),
+    ]
+
+    const result = sanitizeIncompleteToolCalls(messages)
+
+    expect(result).toHaveLength(2)
+    expect(result[0].parts).toEqual([
+      { type: 'text', text: 'Waiting for approval' },
+    ])
+    expect(result[1].role).toBe('user')
+  })
+
+  it('preserves completed tool results', () => {
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        {
+          type: 'tool-take_snapshot',
+          toolCallId: 'call-1',
+          state: 'output-available',
+          input: { page: 1 },
+          output: { text: 'snapshot' },
+        } as unknown as UIMessage['parts'][number],
+      ]),
+    ]
+
+    const result = sanitizeIncompleteToolCalls(messages)
+
+    expect(result).toHaveLength(1)
+    expect(result[0].parts).toHaveLength(1)
+  })
+
+  it('preserves approval responses for the active approval continuation path', () => {
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        {
+          type: 'tool-click',
+          toolCallId: 'call-1',
+          state: 'approval-responded',
+          input: { page: 1, element: 2 },
+          approval: { id: 'approval-1', approved: true },
+        } as unknown as UIMessage['parts'][number],
+      ]),
+    ]
+
+    const result = sanitizeIncompleteToolCalls(messages, {
+      preserveApprovalResponded: true,
+    })
+
+    expect(result).toHaveLength(1)
+    expect(result[0].parts).toHaveLength(1)
+  })
+
+  it('drops messages that only contained interrupted tool parts', () => {
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        {
+          type: 'tool-evaluate_script',
+          toolCallId: 'call-1',
+          state: 'input-available',
+          input: { expression: 'document.body.innerText' },
+        } as unknown as UIMessage['parts'][number],
+      ]),
+    ]
+
+    expect(sanitizeIncompleteToolCalls(messages)).toHaveLength(0)
   })
 })
 

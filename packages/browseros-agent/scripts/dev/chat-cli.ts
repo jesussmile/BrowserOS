@@ -7,8 +7,8 @@
  *   bun --env-file=.env.dev tests/agent-cli.ts --provider=openai --model=gpt-4o "your message here"
  *
  * Options:
- *   --provider  AI provider (default: browseros)
- *   --model     Model name (default: default)
+ *   --provider  AI provider (default: chatgpt-pro)
+ *   --model     Model name (default: gpt-5.4)
  *   --port      Server port (default: $BROWSEROS_SERVER_PORT or 9100)
  *   --system-prompt  Custom system prompt to append
  *   --show-full-output  Show full tool output (default: truncated to 50 chars)
@@ -32,8 +32,8 @@ function parseArgs(): {
   showFullOutput: boolean
 } {
   const args = process.argv.slice(2)
-  let provider = 'browseros'
-  let model = 'default'
+  let provider = 'chatgpt-pro'
+  let model = 'gpt-5.4'
   let port = process.env.BROWSEROS_SERVER_PORT || '9100'
   let showFullOutput = false
   let userSystemPrompt: string | undefined
@@ -59,7 +59,7 @@ function parseArgs(): {
     console.error('Usage: bun scripts/dev/chat-cli.ts [options] "your message"')
     console.error('Options:')
     console.error(
-      '  --provider=<provider>  AI provider (anthropic, openai, google, etc.)',
+      '  --provider=<provider>  AI provider (chatgpt-pro, openai, openai-compatible, etc.)',
     )
     console.error('  --model=<model>        Model name')
     console.error(

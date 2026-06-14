@@ -7,9 +7,9 @@
  * live in `LlmProviderConfig.type` on the extension side) to Hermes
  * runtime configuration. Hermes itself only knows a small fixed set of
  * provider keys; BrowserOS exposes a richer registry, so we explicitly
- * gate which BrowserOS provider types Hermes can consume.
+ * gate which local provider types Hermes can consume.
  *
- * The set of allowed BrowserOS provider types is shared with the
+ * The set of allowed local provider types is shared with the
  * frontend via `HERMES_SUPPORTED_BROWSEROS_PROVIDER_TYPES`. Adding a
  * new type there without an entry here will fail the type check below
  * (every supported type must have a mapping).

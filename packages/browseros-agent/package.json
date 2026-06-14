@@ -39,6 +39,8 @@
     "typecheck": "bun run --filter '*' typecheck",
     "lint": "bunx biome check",
     "lint:fix": "bunx biome check --write --unsafe",
+    "verify:local-only": "bun scripts/verify-local-only.ts",
+    "verify:live-local": "bun scripts/verify-live-local-browseros.ts",
     "gen:cdp": "bun scripts/codegen/cdp-protocol.ts",
     "generate:models": "bun scripts/generate-models.ts"
   },

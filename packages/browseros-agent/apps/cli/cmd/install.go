@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"browseros-cli/output"
@@ -19,8 +21,17 @@ import (
 func init() {
 	cmd := &cobra.Command{
 		Use:   "install",
-		Short: "Download and install BrowserOS for the current platform",
-		Long: `Download BrowserOS for your platform and start the installation.
+		Short: "Download and install BrowserOS from a private package URL",
+		Long: `Download a private BrowserOS package for your platform and start the installation.
+
+This private fork intentionally does not download official BrowserOS builds.
+Configure an internal package URL with one of:
+
+  BROWSEROS_PRIVATE_DMG_URL
+  BROWSEROS_PRIVATE_WINDOWS_INSTALLER_URL
+  BROWSEROS_PRIVATE_DEB_URL
+  BROWSEROS_PRIVATE_APPIMAGE_URL
+  BROWSEROS_PRIVATE_DOWNLOAD_URL
 
 macOS:   Downloads .dmg, mounts it, and copies BrowserOS to /Applications
 Windows: Downloads installer .exe and launches it
@@ -91,21 +102,64 @@ After installation:
 	rootCmd.AddCommand(cmd)
 }
 
+const (
+	privateDownloadURLEnv         = "BROWSEROS_PRIVATE_DOWNLOAD_URL"
+	privateDmgURLEnv              = "BROWSEROS_PRIVATE_DMG_URL"
+	privateWindowsInstallerURLEnv = "BROWSEROS_PRIVATE_WINDOWS_INSTALLER_URL"
+	privateDebURLEnv              = "BROWSEROS_PRIVATE_DEB_URL"
+	privateAppImageURLEnv         = "BROWSEROS_PRIVATE_APPIMAGE_URL"
+)
+
 func resolveDownload(deb bool) (url, filename string) {
+	var envName string
+	var fallbackFilename string
+
 	switch runtime.GOOS {
 	case "darwin":
-		return "https://files.browseros.com/download/BrowserOS.dmg", "BrowserOS.dmg"
+		envName = privateDmgURLEnv
+		fallbackFilename = "BrowserOS.dmg"
 	case "windows":
-		return "https://files.browseros.com/download/BrowserOS_installer.exe", "BrowserOS_installer.exe"
+		envName = privateWindowsInstallerURLEnv
+		fallbackFilename = "BrowserOS_installer.exe"
 	case "linux":
 		if deb {
-			return "https://cdn.browseros.com/download/BrowserOS.deb", "BrowserOS.deb"
+			envName = privateDebURLEnv
+			fallbackFilename = "BrowserOS.deb"
+		} else {
+			envName = privateAppImageURLEnv
+			fallbackFilename = "BrowserOS.AppImage"
 		}
-		return "https://files.browseros.com/download/BrowserOS.AppImage", "BrowserOS.AppImage"
 	default:
-		output.Errorf(1, "unsupported platform: %s/%s\n  Download manually from https://browseros.com", runtime.GOOS, runtime.GOARCH)
+		output.Errorf(1, "unsupported platform: %s/%s", runtime.GOOS, runtime.GOARCH)
 		return "", ""
 	}
+
+	if downloadURL := strings.TrimSpace(os.Getenv(envName)); downloadURL != "" {
+		return downloadURL, filenameFromURL(downloadURL, fallbackFilename)
+	}
+	if downloadURL := strings.TrimSpace(os.Getenv(privateDownloadURLEnv)); downloadURL != "" {
+		return downloadURL, filenameFromURL(downloadURL, fallbackFilename)
+	}
+
+	output.Errorf(
+		1,
+		"private BrowserOS installer URL is not configured; set %s or %s",
+		envName,
+		privateDownloadURLEnv,
+	)
+	return "", ""
+}
+
+func filenameFromURL(downloadURL, fallback string) string {
+	parsed, err := neturl.Parse(downloadURL)
+	if err != nil {
+		return fallback
+	}
+	filename := filepath.Base(parsed.Path)
+	if filename == "" || filename == "." || filename == "/" {
+		return fallback
+	}
+	return filename
 }
 
 func platformDisplayName() string {

@@ -31,9 +31,14 @@ export function registerTools(
     // tool calls without an explicit args.windowId have this value
     // injected — provided the tool's schema actually accepts one.
     defaultWindowId?: number
+    allowedToolNames?: ReadonlySet<string>
   },
 ): void {
-  for (const tool of registry.all()) {
+  const tools = ctx.allowedToolNames
+    ? registry.all().filter((tool) => ctx.allowedToolNames?.has(tool.name))
+    : registry.all()
+
+  for (const tool of tools) {
     const acceptsWindowId = inputHasWindowIdField(tool)
     const handler = async (
       args: Record<string, unknown>,
@@ -124,6 +129,6 @@ export function registerTools(
   }
 
   logger.info(
-    `Registered ${registry.names().length} tools: ${registry.names().join(', ')}`,
+    `Registered ${tools.length} tools: ${tools.map((tool) => tool.name).join(', ')}`,
   )
 }

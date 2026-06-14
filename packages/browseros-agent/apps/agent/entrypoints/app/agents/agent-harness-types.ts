@@ -64,6 +64,13 @@ export interface HarnessAgent {
   lastUsedAt?: number | null
   /** Pinned agents float to the top of the list. Defaults to `false`. */
   pinned?: boolean
+  /** Optional local role template/custom role used to bootstrap the agent. */
+  role?: {
+    roleSource: 'builtin' | 'custom'
+    roleId?: string
+    roleName: string
+    shortDescription: string
+  }
   /** First non-blank line of the most recent user message; null if none. */
   lastUserMessage?: string | null
   /** Working directory the agent runs in; null when no session record yet. */
@@ -117,8 +124,10 @@ export interface CreateHarnessAgentInput {
   adapter: HarnessAgentAdapter
   modelId?: string
   reasoningEffort?: string
+  /** Optional local role template used to bootstrap the agent home. */
+  roleId?: string
   /**
-   * Adapter provider id from the user's BrowserOS AI Settings entry.
+   * Adapter provider id from the user's PannamOS AI Settings entry.
    * Provider-backed adapters use this with `apiKey`/`baseUrl` to write
    * or provision their runtime-specific provider config.
    */

@@ -1,4 +1,10 @@
-export type BrowserOSAgentRoleId = 'chief-of-staff'
+export type BrowserOSAgentRoleId =
+  | 'chief-of-staff'
+  | 'research-analyst'
+  | 'workflow-operator'
+  | 'qa-browser-tester'
+  | 'data-extraction-analyst'
+  | 'knowledge-manager'
 
 export interface BrowserOSRoleBoundary {
   key: string

@@ -68,6 +68,10 @@
     "./sentry/sanitize": {
       "types": "./src/sentry/sanitize.ts",
       "default": "./src/sentry/sanitize.ts"
+    },
+    "./utils/local-url": {
+      "types": "./src/utils/local-url.ts",
+      "default": "./src/utils/local-url.ts"
     }
   }
 }

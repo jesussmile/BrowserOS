@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { SCHEDULED_TASK_PROMPT_REFINED_EVENT } from '@/lib/constants/analyticsEvents'
-import { BrowserOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
+import { PannamOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import {
   defaultProviderIdStorage,
   providersStorage,
@@ -44,6 +44,11 @@ import {
 import type { LlmProviderConfig, ProviderType } from '@/lib/llm-providers/types'
 import { track } from '@/lib/metrics/track'
 import { refinePrompt } from '@/lib/schedules/refine-prompt'
+import {
+  CHAT_MODE_DETAILS,
+  CHAT_MODE_OPTIONS,
+  DEFAULT_CHAT_MODE,
+} from '../../sidepanel/index/chatTypes'
 import type { ScheduledJob } from './types'
 
 const formSchema = z
@@ -53,6 +58,7 @@ const formSchema = z
       .min(1, 'Name is required')
       .max(100, 'Name must be 100 characters or less'),
     query: z.string().min(1, 'Prompt is required'),
+    mode: z.enum(['chat', 'research', 'workflow', 'agent', 'goal']),
     scheduleType: z.enum(['daily', 'hourly', 'minutes']),
     scheduleTime: z.string().optional(),
     scheduleInterval: z.number().int().min(1).max(60).optional(),
@@ -103,6 +109,7 @@ export const NewScheduledTaskDialog: FC<NewScheduledTaskDialogProps> = ({
     defaultValues: {
       name: '',
       query: '',
+      mode: DEFAULT_CHAT_MODE,
       scheduleType: 'daily',
       scheduleTime: '09:00',
       scheduleInterval: 1,
@@ -112,6 +119,7 @@ export const NewScheduledTaskDialog: FC<NewScheduledTaskDialogProps> = ({
   })
 
   const scheduleType = form.watch('scheduleType')
+  const selectedMode = form.watch('mode')
   const selectedProviderId = form.watch('providerId')
   const queryValue = form.watch('query')
   const [isRefining, setIsRefining] = useState(false)
@@ -140,6 +148,7 @@ export const NewScheduledTaskDialog: FC<NewScheduledTaskDialogProps> = ({
         form.reset({
           name: initialValues.name,
           query: initialValues.query,
+          mode: initialValues.mode ?? DEFAULT_CHAT_MODE,
           scheduleType: initialValues.scheduleType,
           scheduleTime: initialValues.scheduleTime || '09:00',
           scheduleInterval: initialValues.scheduleInterval || 1,
@@ -150,6 +159,7 @@ export const NewScheduledTaskDialog: FC<NewScheduledTaskDialogProps> = ({
         form.reset({
           name: '',
           query: '',
+          mode: DEFAULT_CHAT_MODE,
           scheduleType: 'daily',
           scheduleTime: '09:00',
           scheduleInterval: 1,
@@ -247,6 +257,7 @@ export const NewScheduledTaskDialog: FC<NewScheduledTaskDialogProps> = ({
     onSave({
       name: values.name.trim(),
       query: values.query.trim(),
+      mode: values.mode,
       scheduleType: values.scheduleType,
       scheduleTime:
         values.scheduleType === 'daily' ? values.scheduleTime : undefined,
@@ -365,7 +376,7 @@ export const NewScheduledTaskDialog: FC<NewScheduledTaskDialogProps> = ({
                     <span className="flex items-center gap-2">
                       <span className="text-muted-foreground">
                         {resolvedProvider.type === 'browseros' ? (
-                          <BrowserOSIcon size={16} />
+                          <PannamOSIcon size={16} />
                         ) : (
                           <ProviderIcon
                             type={resolvedProvider.type as ProviderType}
@@ -383,6 +394,38 @@ export const NewScheduledTaskDialog: FC<NewScheduledTaskDialogProps> = ({
                 </FormDescription>
               </FormItem>
             )}
+
+            <FormField
+              control={form.control}
+              name="mode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Mode</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select mode" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {CHAT_MODE_OPTIONS.map((option) => (
+                        <SelectItem key={option.mode} value={option.mode}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    {CHAT_MODE_DETAILS[selectedMode].description}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField

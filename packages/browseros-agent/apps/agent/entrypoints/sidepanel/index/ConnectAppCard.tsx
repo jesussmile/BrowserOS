@@ -66,7 +66,21 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({
       })
 
       if (!response.oauthUrl && !response.apiKeyUrl) {
-        toast.error(`Failed to connect ${appName}`)
+        addServer({
+          id: Date.now().toString(),
+          displayName: appName,
+          type: 'managed',
+          managedServerName: appName,
+          managedServerDescription: '',
+          connectionMode: response.connectionMode ?? 'local_catalog',
+        })
+        track(MANAGED_MCP_ADDED_EVENT, { server_name: appName })
+        toast.success(`${appName} added to the local app catalog`)
+        setResolvedText(`${appName} saved locally`)
+        setPhase('resolved')
+        sendMessage({
+          text: `${appName} is saved locally. Continue with browser automation unless a custom local MCP server is configured for it.`,
+        })
         setConnecting(false)
         return
       }
@@ -81,6 +95,7 @@ export const ConnectAppCard: FC<ConnectAppCardProps> = ({
           type: 'managed',
           managedServerName: appName,
           managedServerDescription: '',
+          connectionMode: response.connectionMode ?? 'local_catalog',
         })
         track(MANAGED_MCP_ADDED_EVENT, { server_name: appName })
         window.open(response.oauthUrl, '_blank')?.focus()

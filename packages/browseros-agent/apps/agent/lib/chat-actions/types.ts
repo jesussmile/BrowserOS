@@ -1,3 +1,8 @@
+import type {
+  ChatMode,
+  LegacyChatMode,
+} from '@/entrypoints/sidepanel/index/chatTypes'
+
 /**
  * Base interface for all chat actions
  * @public
@@ -19,12 +24,12 @@ export interface AITabAction extends BaseChatAction {
 }
 
 /**
- * Action for BrowserOS chat/agent queries
+ * Action for PannamOS chat/agent queries
  * @public
  */
-export interface BrowserOSAction extends BaseChatAction {
+export interface PannamOSAction extends BaseChatAction {
   type: 'browseros'
-  mode: 'chat' | 'agent'
+  mode: ChatMode
   message: string
   tabs?: chrome.tabs.Tab[]
 }
@@ -33,7 +38,7 @@ export interface BrowserOSAction extends BaseChatAction {
  * Union type of all chat actions
  * @public
  */
-export type ChatAction = AITabAction | BrowserOSAction
+export type ChatAction = AITabAction | PannamOSAction
 
 /**
  * Storage format for search actions passed between newtab and sidepanel
@@ -41,7 +46,7 @@ export type ChatAction = AITabAction | BrowserOSAction
  */
 export interface SearchActionData {
   query: string
-  mode: 'chat' | 'agent'
+  mode: LegacyChatMode
   action?: ChatAction
 }
 
@@ -63,14 +68,14 @@ export const createAITabAction = (params: {
 })
 
 /**
- * Helper to create a BrowserOS action
+ * Helper to create a PannamOS action
  * @public
  */
-export const createBrowserOSAction = (params: {
-  mode: 'chat' | 'agent'
+export const createPannamOSAction = (params: {
+  mode: ChatMode
   message: string
   tabs?: chrome.tabs.Tab[]
-}): BrowserOSAction => ({
+}): PannamOSAction => ({
   id: crypto.randomUUID(),
   type: 'browseros',
   timestamp: Date.now(),

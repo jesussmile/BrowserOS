@@ -6,7 +6,11 @@ import {
 } from '@/entrypoints/app/agents/useAgents'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
-import { type McpServer, useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import {
+  isLiveMcpServer,
+  type McpServer,
+  useMcpServers,
+} from '@/lib/mcp/mcpServerStorage'
 import { usePersonalization } from '@/lib/personalization/personalizationStorage'
 import {
   buildSidepanelChatTargets,
@@ -17,19 +21,18 @@ import {
   type SidepanelChatTargetSelection,
 } from './sidepanel-chat-targets'
 
-const constructMcpServers = (servers: McpServer[]) => {
-  return servers
-    .filter((eachServer) => eachServer.type === 'managed')
-    .map((each) => each.managedServerName)
+const constructMcpServers = (_servers: McpServer[]): string[] => {
+  // Upstream/Klavis-managed app tools are disabled in the private build.
+  // Live app tools are sent through customMcpServers once a local connector URL
+  // is configured.
+  return []
 }
 
 const constructCustomServers = (servers: McpServer[]) => {
-  return servers
-    .filter((eachServer) => eachServer.type === 'custom')
-    .map((each) => ({
-      name: each.displayName,
-      url: each.config?.url,
-    }))
+  return servers.filter(isLiveMcpServer).map((each) => ({
+    name: each.displayName,
+    url: each.config.url,
+  }))
 }
 
 export const useChatRefs = () => {
@@ -85,6 +88,11 @@ export const useChatRefs = () => {
   const enabledMcpServersRef = useRef(constructMcpServers(mcpServers))
   const enabledCustomServersRef = useRef(constructCustomServers(mcpServers))
   const personalizationRef = useRef(personalization)
+
+  // Keep request-time refs current during render so URL-triggered initial
+  // messages cannot race against useEffect and send with a stale provider.
+  selectedLlmProviderRef.current = selectedLlmProvider
+  selectedChatTargetRef.current = selectedChatTarget
 
   useDeepCompareEffect(() => {
     selectedLlmProviderRef.current = selectedLlmProvider

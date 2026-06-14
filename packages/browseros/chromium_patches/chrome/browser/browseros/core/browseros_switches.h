@@ -1,9 +1,9 @@
-diff --git a/chrome/browser/browseros/core/browseros_switches.h b/chrome/browser/browseros/core/browseros_switches.h
+﻿diff --git a/chrome/browser/browseros/core/browseros_switches.h b/chrome/browser/browseros/core/browseros_switches.h
 new file mode 100644
 index 0000000000000..7ac2f2f44fd1d
 --- /dev/null
 +++ b/chrome/browser/browseros/core/browseros_switches.h
-@@ -0,0 +1,89 @@
+@@ -0,0 +1,102 @@
 +// Copyright 2024 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -26,6 +26,10 @@ index 0000000000000..7ac2f2f44fd1d
 +
 +// Disables the BrowserOS server OTA updater.
 +inline constexpr char kDisableServerUpdater[] = "disable-browseros-server-updater";
++
++// Enables the PannamOS server updater. PannamOS is manually updated by default,
++// so the sidecar updater stays off unless this switch is explicitly present.
++inline constexpr char kEnableServerUpdater[] = "pannamos-enable-server-updater";
 +
 +// Overrides the appcast URL for server updates (testing).
 +inline constexpr char kServerAppcastUrl[] = "browseros-server-appcast-url";
@@ -55,6 +59,15 @@ index 0000000000000..7ac2f2f44fd1d
 +
 +// Overrides the extensions config URL.
 +inline constexpr char kExtensionsUrl[] = "browseros-extensions-url";
++
++// Overrides the PannamOS storage root. The default is E:\PannamOS on Windows.
++inline constexpr char kPannamOSStorageRoot[] = "pannamos-storage-root";
++
++// Overrides the PannamOS browser profile directory.
++inline constexpr char kPannamOSUserDataDir[] = "pannamos-user-data-dir";
++
++// Overrides the PannamOS sidecar execution/state directory.
++inline constexpr char kPannamOSExecutionDir[] = "pannamos-execution-dir";
 +
 +// === URL Override Switches ===
 +

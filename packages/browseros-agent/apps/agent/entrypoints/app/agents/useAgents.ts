@@ -23,6 +23,7 @@ export type { AgentHarnessStreamEvent }
 export const AGENT_QUERY_KEYS = {
   adapters: 'agent-harness-adapters',
   agents: 'agent-harness-agents',
+  localCapabilities: 'local-agent-capabilities',
 } as const
 
 export async function agentsFetch<T>(
@@ -69,6 +70,67 @@ export function useAgentAdapters(enabled = true) {
       capabilitiesLoading ||
       (agentsSupported && (query.isLoading || urlLoading)),
     error: agentsSupported ? (query.error ?? urlError) : null,
+    refetch: query.refetch,
+  }
+}
+
+export interface LocalRuntimeSkillDescriptor {
+  id: string
+  name: string
+  description: string
+  source: 'local_runtime' | 'repo_skill'
+}
+
+export interface LocalAgentRoleTemplate {
+  id: string
+  name: string
+  shortDescription: string
+  longDescription: string
+  recommendedApps: string[]
+  defaultAgentName: string
+}
+
+export interface LocalAgentCapabilities {
+  adapters: HarnessAdapterDescriptor[]
+  skills: LocalRuntimeSkillDescriptor[]
+  roles: LocalAgentRoleTemplate[]
+  localFirst: boolean
+  cloud: {
+    browserosLoginRequired: boolean
+    browserosCloudSync: boolean
+    managedAppAuth: boolean
+  }
+}
+
+export async function fetchLocalAgentCapabilities(
+  baseUrl: string,
+): Promise<LocalAgentCapabilities> {
+  const res = await fetch(
+    `${baseUrl.replace(/\/$/, '')}/local/agent-capabilities`,
+  )
+  if (!res.ok) {
+    throw new Error(`Request failed with status ${res.status}`)
+  }
+  return res.json() as Promise<LocalAgentCapabilities>
+}
+
+export function useLocalAgentCapabilities(enabled = true) {
+  const {
+    baseUrl,
+    isLoading: urlLoading,
+    error: urlError,
+  } = useAgentServerUrl()
+
+  const query = useQuery<LocalAgentCapabilities, Error>({
+    queryKey: [AGENT_QUERY_KEYS.localCapabilities, baseUrl],
+    queryFn: () => fetchLocalAgentCapabilities(baseUrl as string),
+    enabled: Boolean(baseUrl) && !urlLoading && enabled,
+  })
+
+  return {
+    capabilities: query.data ?? null,
+    loading: query.isLoading || urlLoading,
+    error: query.error ?? urlError,
     refetch: query.refetch,
   }
 }
@@ -122,7 +184,7 @@ export function useCreateHarnessAgent() {
   return useMutation({
     mutationFn: async (input: CreateHarnessAgentInput) => {
       if (!baseUrl || urlLoading) {
-        throw new Error('BrowserOS agent server URL is not ready')
+        throw new Error('PannamOS agent server URL is not ready')
       }
       const data = await agentsFetch<{ agent: HarnessAgent }>(baseUrl, '/', {
         method: 'POST',
@@ -155,7 +217,7 @@ export function useUpdateHarnessAgent() {
       patch: { name?: string; pinned?: boolean }
     }) => {
       if (!baseUrl || urlLoading) {
-        throw new Error('BrowserOS agent server URL is not ready')
+        throw new Error('PannamOS agent server URL is not ready')
       }
       const data = await agentsFetch<{ agent: HarnessAgent }>(
         baseUrl,
@@ -203,7 +265,7 @@ export function useDeleteHarnessAgent() {
   return useMutation({
     mutationFn: async (agentId: string) => {
       if (!baseUrl || urlLoading) {
-        throw new Error('BrowserOS agent server URL is not ready')
+        throw new Error('PannamOS agent server URL is not ready')
       }
       return agentsFetch<{ success: boolean }>(
         baseUrl,

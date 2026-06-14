@@ -1,18 +1,23 @@
 #!/usr/bin/env bash
 #
-# Install browseros-cli — downloads the latest release binary for your platform.
+# Install browseros-cli from a private internal release channel.
 #
 # Usage:
-#   curl -fsSL https://cdn.browseros.com/cli/install.sh | bash
+#   BROWSEROS_CLI_DOWNLOAD_BASE="https://internal.example/cli" ./install.sh
 #
 #   # Or with options:
-#   curl -fsSL https://cdn.browseros.com/cli/install.sh | bash -s -- --version 0.1.0 --dir /usr/local/bin
+#   BROWSEROS_CLI_DOWNLOAD_BASE="https://internal.example/cli" ./install.sh --version 0.1.0 --dir /usr/local/bin
 
 set -euo pipefail
 
-CDN_BASE="https://cdn.browseros.com/cli"
+CDN_BASE="${BROWSEROS_CLI_DOWNLOAD_BASE:-}"
 BINARY="browseros-cli"
 INSTALL_DIR="${HOME}/.browseros/bin"
+
+if [[ -z "$CDN_BASE" ]]; then
+  echo "Error: BROWSEROS_CLI_DOWNLOAD_BASE must point to an internal private CLI release channel." >&2
+  exit 1
+fi
 
 # ── Parse arguments ──────────────────────────────────────────────────────────
 

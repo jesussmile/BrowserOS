@@ -38,7 +38,7 @@ export const useSubmitApiKey = () => {
   const { baseUrl: agentServerUrl } = useAgentServerUrl()
 
   return useSWRMutation(
-    agentServerUrl ? `${agentServerUrl}/klavis/servers/submit-api-key` : null,
+    agentServerUrl ? `${agentServerUrl}/local/apps/submit-api-key` : null,
     submitApiKey,
   )
 }

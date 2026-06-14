@@ -1,9 +1,9 @@
-diff --git a/chrome/browser/browseros/server/process_controller_impl.cc b/chrome/browser/browseros/server/process_controller_impl.cc
+﻿diff --git a/chrome/browser/browseros/server/process_controller_impl.cc b/chrome/browser/browseros/server/process_controller_impl.cc
 new file mode 100644
 index 0000000000000..d1bb340ae3d86
 --- /dev/null
 +++ b/chrome/browser/browseros/server/process_controller_impl.cc
-@@ -0,0 +1,211 @@
+@@ -0,0 +1,216 @@
 +// Copyright 2024 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -51,9 +51,14 @@ index 0000000000000..d1bb340ae3d86
 +  root.Set("ports", std::move(ports_dict));
 +
 +  // directories
++  base::FilePath storage_root = config.paths.execution.DirName();
 +  base::DictValue directories;
 +  directories.Set("resources", actual_resources_dir.AsUTF8Unsafe());
++  directories.Set("storage_root", storage_root.AsUTF8Unsafe());
 +  directories.Set("execution", config.paths.execution.AsUTF8Unsafe());
++  directories.Set(
++      "outputs",
++      storage_root.Append(FILE_PATH_LITERAL("Outputs")).AsUTF8Unsafe());
 +  root.Set("directories", std::move(directories));
 +
 +  // flags

@@ -17,7 +17,7 @@ import {
 } from 'node:path'
 import { PATHS } from '@browseros/shared/constants/paths'
 
-export const VM_NAME = 'browseros-vm'
+export const VM_NAME = 'pannamos-vm'
 export const GUEST_VM_STATE = '/mnt/browseros/vm'
 const HOST_LIMACTL_BINARY = 'limactl'
 
@@ -72,7 +72,7 @@ export function compressedDiskPath(
 ): string {
   return join(
     getVmCacheDir(browserosRoot),
-    `browseros-vm-${version}-${arch}.qcow2.zst`,
+    `pannamos-vm-${version}-${arch}.qcow2.zst`,
   )
 }
 
@@ -83,7 +83,7 @@ export function decompressedDiskPath(
 ): string {
   return join(
     getVmCacheDir(browserosRoot),
-    `browseros-vm-${version}-${arch}.qcow2`,
+    `pannamos-vm-${version}-${arch}.qcow2`,
   )
 }
 
@@ -142,7 +142,7 @@ export function resolveBundledLimaTemplate(resourcesDir: string): string {
     if (sourceTemplate) return sourceTemplate
   }
 
-  const candidate = join(resourcesDir, 'vm', 'browseros-vm.yaml')
+  const candidate = join(resourcesDir, 'vm', 'pannamos-vm.yaml')
   if (!existsSync(candidate)) {
     throw new Error(
       `bundled Lima template not found at ${candidate}; refresh server resources from the build-tools README`,
@@ -179,7 +179,7 @@ function findSourceLimaTemplate(resourcesDir: string): string | null {
       'packages',
       'build-tools',
       'template',
-      'browseros-vm.yaml',
+      'pannamos-vm.yaml',
     )
     if (existsSync(rootCandidate)) return rootCandidate
 
@@ -187,7 +187,7 @@ function findSourceLimaTemplate(resourcesDir: string): string | null {
       current,
       'build-tools',
       'template',
-      'browseros-vm.yaml',
+      'pannamos-vm.yaml',
     )
     if (existsSync(packageCandidate)) return packageCandidate
 

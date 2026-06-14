@@ -1,50 +1,43 @@
 import { z } from 'zod'
 import { defineTool } from './framework'
 
-const BROWSEROS_INFO = `# BrowserOS — The Open-Source AI Browser
+const BROWSEROS_INFO = `# PannamOS — Private Local-First AI Browser
 
-BrowserOS is an AI-native browser built on Chromium that turns plain English into browser actions. It runs AI agents locally on your machine, keeping your data private. Open source under AGPL-3.0.
-
-**Docs:** https://docs.browseros.com/
+PannamOS is a private, local-first AI browser that turns plain English into supervised browser actions. This private build keeps sessions, messages, agent runs, and audit data on this PC. Open source attribution and AGPL-3.0 notices remain preserved in legal and attribution surfaces.
 
 ---
 
 ## Modes
 
-- **Chat Mode** — Ask questions about any webpage: summarize articles, extract data, translate content. Activate with Option+K. Works with any LLM, including local models.
-- **Agent Mode** — Describe a task and the agent executes it: clicking, typing, navigating, filling forms, extracting data, and multi-step browser tasks. Best with Claude Opus 4.5 or Kimi K2.5.
+- **Chat Mode** — Ask questions about any webpage: summarize articles, extract data, translate content, and keep tools read-only.
+- **Research Mode** — Browse and compare sources, collect citations or source URLs, and avoid data-changing actions unless explicitly requested.
+- **Workflow Mode** — Run repeatable browser steps, form filling, extraction, and structured output with approval pauses before risky actions.
+- **Goal Mode** — Work toward a supervised goal until complete or blocked, pausing before form submissions, purchases, deletions, uploads, public messages, account changes, or other irreversible actions.
 
 ---
 
 ## Core Features
 
 ### Bring Your Own LLM
-Connect your preferred AI provider or run models locally. Supported providers: Gemini (free tier), Claude/Anthropic, OpenAI, OpenRouter (500+ models). Local options: Ollama, LM Studio. Configure at chrome://browseros/settings.
-Learn more: https://docs.browseros.com/features/bring-your-own-llm
+Connect your preferred AI provider or run models locally. Supported providers include Anthropic, OpenAI, OpenRouter, Gemini, Ollama, LM Studio, OpenAI-compatible endpoints, ChatGPT Plus/Pro provider auth, GitHub Copilot, Qwen Code, Azure, Bedrock, and Moonshot where configured. Configure providers in AI & Agents settings. No cloud account is required.
 
 ### Scheduled Tasks
-Automate tasks on a schedule — daily, hourly, or every few minutes. Runs in a background window without interrupting your work. Use cases: morning briefings, LinkedIn automation, price monitoring. Requires BrowserOS to be open.
-Learn more: https://docs.browseros.com/features/scheduled-tasks
+Automate tasks on a schedule — daily, hourly, or every few minutes. Runs in a background window without interrupting your work. Use cases: morning briefings, LinkedIn automation, price monitoring. Requires PannamOS to be open.
 
 ### Filesystem Access
 Grant the agent controlled access to a local folder to read files, write reports, and run shell commands. Sandboxed — cannot access parent directories. Combine web research with local file creation in a single task.
-Learn more: https://docs.browseros.com/features/cowork
 
 ### Connect Apps (MCPs)
-Link external apps so the agent can access them conversationally. Built-in integrations: Gmail, Google Calendar, Google Docs, Google Sheets, Google Drive, Slack, Notion, LinkedIn. Custom MCP servers supported via SSE endpoints. Credentials stored locally.
-Learn more: https://docs.browseros.com/features/connect-mcps
+Link local MCP connectors so the agent can access approved tools conversationally. Custom MCP servers are supported via local SSE endpoints. Remote managed connector sync is disabled in this private build.
 
 ### MCP Server for Developer Tools
 Built-in MCP server exposes 31 browser automation tools to Claude Code, Gemini CLI, OpenAI Codex CLI, and Claude Desktop. Enables agentic coding (test web apps, read console errors, fix code), data extraction from authenticated pages, and programmatic browser control.
-Learn more: https://docs.browseros.com/features/use-with-claude-code
 
 ### Chat & LLM Hub
 Chat provides quick AI access across any webpage via the side panel. LLM Hub enables side-by-side comparison of up to 3 models simultaneously. Switch providers instantly with Option+L.
-Learn more: https://docs.browseros.com/features/llm-chat-hub
 
 ### Ad Blocking
-Built-in ad blocking powered by uBlock Origin with full Manifest V2 support. Blocks ~10x more ads than Chrome out of the box (68% vs 7% effectiveness). Faster page loads, less bandwidth, reduced tracking.
-Learn more: https://docs.browseros.com/features/ad-blocking`
+Built-in ad blocking support remains part of the browser foundation where packaged with the PannamOS browser build.`
 
 const VALID_TOPICS = [
   'overview',
@@ -58,7 +51,7 @@ const VALID_TOPICS = [
 ] as const
 
 const TOPIC_SECTIONS: Record<string, { start: string; end?: string }> = {
-  overview: { start: '# BrowserOS', end: '## Core Features' },
+  overview: { start: '# PannamOS', end: '## Core Features' },
   'bring-your-own-llm': {
     start: '### Bring Your Own LLM',
     end: '### Scheduled Tasks',
@@ -100,7 +93,7 @@ function getTopicContent(topic: string): string {
 export const browseros_info = defineTool({
   name: 'browseros_info',
   description:
-    'Get information about BrowserOS features, capabilities, and documentation links. Use when users ask "What is BrowserOS?", "What can BrowserOS do?", or about specific features.',
+    'Get local information about PannamOS private-build features and capabilities. Use when users ask "What is PannamOS?", "What can PannamOS do?", or about specific features.',
   input: z.object({
     topic: z
       .enum(VALID_TOPICS)

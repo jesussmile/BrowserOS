@@ -54,7 +54,7 @@ export const ProviderSelector: FC<ProviderSelectorProps> = ({
         </SelectContent>
       </Select>
       <p className="text-muted-foreground text-xs">
-        Uses your existing API key from BrowserOS settings.
+        Uses your existing API key from PannamOS settings.
       </p>
     </div>
   )

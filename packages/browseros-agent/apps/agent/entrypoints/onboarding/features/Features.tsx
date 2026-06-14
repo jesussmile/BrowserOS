@@ -3,16 +3,16 @@ import {
   ArrowRight,
   BookOpenText,
   Bot,
+  CalendarClock,
   Code2,
   FolderOpen,
   LinkIcon,
   Plug,
+  Settings2,
   SplitSquareHorizontal,
 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
-import DiscordLogo from '@/assets/discord-logo.svg'
 import GithubLogo from '@/assets/github-logo.svg'
-import SlackLogo from '@/assets/slack-logo.svg'
 import { PillIndicator } from '@/components/elements/pill-indicator'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,12 +23,7 @@ import {
   MCP_SERVER_DEMO_URL,
   SPLIT_VIEW_GIF_URL,
 } from '@/lib/constants/mediaUrls'
-import {
-  discordUrl,
-  docsUrl,
-  productRepositoryUrl,
-  slackUrl,
-} from '@/lib/constants/productUrls'
+import { docsUrl, productRepositoryUrl } from '@/lib/constants/productUrls'
 import { cn } from '@/lib/utils'
 import { BentoCard, type Feature } from './BentoCard'
 import { VideoFrame } from './VideoFrame'
@@ -40,9 +35,9 @@ const features: Feature[] = [
     tag: 'AI AGENT',
     title: 'Built-in AI Agent',
     description:
-      'Describe any task and watch BrowserOS execute it—clicking, typing, and navigating for you.',
+      'Describe any task and watch PannamOS execute it—clicking, typing, and navigating for you.',
     detailedDescription:
-      'The BrowserOS Agent turns your words into browser actions. Describe what you need in plain English—fill out this form, extract data from that page, navigate through these steps—and the agent handles the rest. It clicks buttons, types text, navigates between pages, and completes multi-step browser tasks automatically. Everything runs locally on your machine with your own API keys, so your data stays private.',
+      'The PannamOS Agent turns your words into browser actions. Describe what you need in plain English—fill out this form, extract data from that page, navigate through these steps—and the agent handles the rest. It clicks buttons, types text, navigates between pages, and completes multi-step browser tasks automatically. Everything runs locally on your machine with your own API keys, so your data stays private.',
     highlights: [
       'Multi-tab execution — run agents in multiple tabs simultaneously',
       'Smart navigation — automatically finds and interacts with page elements',
@@ -58,11 +53,11 @@ const features: Feature[] = [
     id: 'mcp-server',
     Icon: Plug,
     tag: 'MCP',
-    title: 'BrowserOS as MCP Server',
+    title: 'PannamOS as MCP Server',
     description:
       'Connect Claude Code, Gemini CLI, or any MCP client to control your browser with 31 tools.',
     detailedDescription:
-      'BrowserOS includes a built-in MCP server that lets AI coding agents control your browser. Claude Code can open tabs, click elements, fill forms, take screenshots, and read page content—all through natural language commands. Unlike Chrome DevTools MCP which requires debug profiles and separate servers, BrowserOS works out of the box. Just copy the URL from settings and connect.',
+      'PannamOS includes a built-in MCP server that lets AI coding agents control your browser. Claude Code can open tabs, click elements, fill forms, take screenshots, and read page content—all through natural language commands. Unlike Chrome DevTools MCP which requires debug profiles and separate servers, PannamOS works out of the box. Just copy the URL from settings and connect.',
     highlights: [
       'One-line setup — run `claude mcp add` with your server URL to connect',
       '31 browser tools — tabs, clicks, typing, screenshots, bookmarks, history',
@@ -117,7 +112,7 @@ const features: Feature[] = [
     description:
       'Claude Code tests your web app, reads console errors, and fixes your code in one loop.',
     detailedDescription:
-      'The killer workflow for frontend developers. Claude Code connects to BrowserOS, opens your localhost app, clicks through the UI, reads console errors and network failures, then goes back to your codebase to fix the bugs—all in one continuous loop. No more switching between terminal and browser. No more copy-pasting error messages. Just describe the issue and let the agent debug it end-to-end.',
+      'The killer workflow for frontend developers. Claude Code connects to PannamOS, opens your localhost app, clicks through the UI, reads console errors and network failures, then goes back to your codebase to fix the bugs—all in one continuous loop. No more switching between terminal and browser. No more copy-pasting error messages. Just describe the issue and let the agent debug it end-to-end.',
     highlights: [
       'Test & fix loop — Claude navigates your app, finds bugs, and patches them',
       'Console access — read browser console and network errors from your terminal',
@@ -173,9 +168,7 @@ export const FeaturesPage: FC = () => {
                   )}
                 >
                   Why Switch to{' '}
-                  <span className="text-[var(--accent-orange)]">
-                    BrowserOS?
-                  </span>
+                  <span className="text-[var(--accent-orange)]">PannamOS?</span>
                 </h1>
                 <p
                   className={cn(
@@ -186,7 +179,7 @@ export const FeaturesPage: FC = () => {
                       : 'translate-y-4 opacity-0',
                   )}
                 >
-                  Watch our launch video to understand the vision of BrowserOS
+                  Watch our launch video to understand the vision of PannamOS
                   and key features!
                 </p>
               </div>
@@ -194,7 +187,7 @@ export const FeaturesPage: FC = () => {
 
             {/* Centered Large Video */}
             <VideoFrame
-              title="browseros.com/demo"
+              title="Local PannamOS demo"
               className={cn(
                 'transition-all delay-500 duration-700',
                 mounted
@@ -205,7 +198,7 @@ export const FeaturesPage: FC = () => {
               <video
                 className="h-full w-full"
                 src={BROWSER_OS_INTRO_VIDEO_URL}
-                title="BrowserOS MCP Server Demonstration"
+                title="PannamOS MCP Server Demonstration"
                 autoPlay
                 muted
                 loop
@@ -274,56 +267,44 @@ export const FeaturesPage: FC = () => {
           <div className="mb-8 flex items-center gap-3">
             <LinkIcon className="h-6 w-6 text-[var(--accent-orange)]" />
             <h2 className="font-bold text-3xl">
-              Join our community and help us improve{' '}
-              <span className="text-[var(--accent-orange)]">BrowserOS!</span>
+              Private build resources for{' '}
+              <span className="text-[var(--accent-orange)]">PannamOS!</span>
             </h2>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            {/* Discord */}
+            {/* Local runtime */}
             <a
-              href={discordUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              href="app.html#/settings/ai"
               className="community-card group flex items-start gap-4 rounded-xl border border-border bg-card p-6 transition-all hover:-translate-y-1 hover:border-[var(--accent-orange)]/50 hover:bg-card/80 hover:shadow-[var(--accent-orange)]/5 hover:shadow-lg"
             >
-              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg transition-all group-hover:scale-110">
-                <img
-                  src={DiscordLogo}
-                  className="h-full w-full"
-                  alt="discord-logo"
-                />
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)]/10 transition-all group-hover:scale-110 group-hover:bg-[var(--accent-orange)]/20">
+                <Settings2 className="h-6 w-6 text-[var(--accent-orange)]" />
               </div>
               <div className="space-y-1">
                 <h3 className="font-semibold text-lg transition-colors group-hover:text-[var(--accent-orange)]">
-                  Join Discord
+                  Local providers & agents
                 </h3>
                 <p className="text-muted-foreground text-sm">
-                  To suggest features / provide feedback
+                  Configure model providers, agents, skills, and runtime roles
                 </p>
               </div>
             </a>
 
-            {/* Slack */}
+            {/* Scheduled tasks */}
             <a
-              href={slackUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              href="app.html#/scheduled"
               className="community-card group flex items-start gap-4 rounded-xl border border-border bg-card p-6 transition-all hover:-translate-y-1 hover:border-[var(--accent-orange)]/50 hover:bg-card/80 hover:shadow-[var(--accent-orange)]/5 hover:shadow-lg"
             >
-              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg transition-all group-hover:scale-110">
-                <img
-                  src={SlackLogo}
-                  className="h-full w-full"
-                  alt="slack-logo"
-                />
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)]/10 transition-all group-hover:scale-110 group-hover:bg-[var(--accent-orange)]/20">
+                <CalendarClock className="h-6 w-6 text-[var(--accent-orange)]" />
               </div>
               <div className="space-y-1">
                 <h3 className="font-semibold text-lg transition-colors group-hover:text-[var(--accent-orange)]">
-                  Join Slack
+                  Scheduled tasks
                 </h3>
                 <p className="text-muted-foreground text-sm">
-                  To suggest features / provide feedback
+                  Review local recurring browser automation tasks
                 </p>
               </div>
             </a>
@@ -380,7 +361,7 @@ export const FeaturesPage: FC = () => {
             size="lg"
             className="bg-[var(--accent-orange)] text-white shadow-[var(--accent-orange)]/25 shadow-lg hover:bg-[var(--accent-orange)]/90"
           >
-            Start Using BrowserOS
+            Start Using PannamOS
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>

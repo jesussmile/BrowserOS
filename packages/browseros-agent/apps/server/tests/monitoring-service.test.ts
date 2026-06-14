@@ -28,6 +28,19 @@ function buildSafeResult(input: LazyMonitoringJudgeInput) {
   }
 }
 
+async function waitFor(
+  predicate: () => boolean,
+  label: string,
+  timeoutMs = 1000,
+) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (predicate()) return
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  throw new Error(`Timed out waiting for ${label}`)
+}
+
 afterEach(async () => {
   await Promise.all(
     [...createdRunDirs].map(async (runId) => {
@@ -182,7 +195,13 @@ describe('MonitoringService lazy judge integration', () => {
       ])
 
       expect(result).toBe('done')
-      await new Promise((resolve) => setTimeout(resolve, 0))
+      await waitFor(
+        () =>
+          errorLogs.some((entry) =>
+            entry.includes('"type":"lazy-monitoring-judge-error"'),
+          ),
+        'lazy monitoring judge error log',
+      )
 
       expect(
         errorLogs.some((entry) =>
@@ -233,7 +252,15 @@ describe('MonitoringService lazy judge integration', () => {
         source: 'browser-tool',
         args: { page: 1 },
       })
-      await new Promise((resolve) => setTimeout(resolve, 0))
+      await waitFor(
+        () =>
+          stdoutLogs.some(
+            (entry) =>
+              entry.includes('"type":"lazy-monitoring-judge"') &&
+              entry.includes('"verdict":"safe"'),
+          ),
+        'lazy monitoring judge safe log',
+      )
 
       expect(
         stdoutLogs.some(

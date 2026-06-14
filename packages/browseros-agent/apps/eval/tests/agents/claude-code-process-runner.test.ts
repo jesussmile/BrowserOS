@@ -6,8 +6,16 @@ import { createClaudeCodeProcessRunner } from '../../src/agents/claude-code/proc
 
 async function writeStdoutScript(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'claude-code-runner-'))
-  const script = join(dir, 'stdout-lines')
-  await writeFile(script, '#!/bin/sh\nprintf "first\\nbad\\nlast\\n"\n')
+  const script =
+    process.platform === 'win32'
+      ? join(dir, 'stdout-lines.cmd')
+      : join(dir, 'stdout-lines')
+  await writeFile(
+    script,
+    process.platform === 'win32'
+      ? '@echo off\r\necho first\r\necho bad\r\necho last\r\n'
+      : '#!/bin/sh\nprintf "first\\nbad\\nlast\\n"\n',
+  )
   await chmod(script, 0o755)
   return script
 }

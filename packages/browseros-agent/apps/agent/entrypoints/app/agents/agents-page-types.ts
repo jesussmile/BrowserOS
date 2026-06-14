@@ -19,6 +19,7 @@ export interface AgentListItem {
   runtimeLabel: string
   modelLabel: string
   detail: string
+  roleLabel?: string
   canChat: boolean
   canDelete: boolean
 }

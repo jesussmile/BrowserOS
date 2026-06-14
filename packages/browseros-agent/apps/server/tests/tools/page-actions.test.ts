@@ -30,14 +30,16 @@ function structuredOf<T>(result: { structuredContent?: unknown }): T {
 
 function createToolContext(
   browser: Browser,
-  workingDir: string,
+  workingDir?: string,
   resourcesDir?: string,
+  defaultOutputDir?: string,
 ): ToolContext {
   return {
     browser,
     directories: {
       workingDir,
       resourcesDir,
+      defaultOutputDir,
     },
   }
 }
@@ -75,6 +77,34 @@ describe('page action tools', () => {
       assert.ok(existsSync(outputPath), 'PDF file should exist in workingDir')
     } finally {
       await rm(workingDir, { recursive: true, force: true })
+    }
+  })
+
+  it('save_pdf resolves relative paths against default output dir when no workspace is selected', async () => {
+    const outputDir = await mkdtemp(join(tmpdir(), 'pannamos-manual-output-'))
+    const browser = createBrowserStub({
+      printToPDF: async () => ({
+        data: Buffer.from('pdf-data').toString('base64'),
+      }),
+    })
+
+    try {
+      const result = await executeTool(
+        save_pdf,
+        { page: 1, path: 'report.pdf' },
+        createToolContext(browser, undefined, undefined, outputDir),
+        AbortSignal.timeout(1_000),
+      )
+
+      assert.ok(!result.isError, textOf(result))
+      const outputPath = join(outputDir, 'report.pdf')
+      assert.strictEqual(
+        structuredOf<{ path: string }>(result).path,
+        outputPath,
+      )
+      assert.ok(existsSync(outputPath), 'PDF file should exist in outputDir')
+    } finally {
+      await rm(outputDir, { recursive: true, force: true })
     }
   })
 
@@ -154,7 +184,7 @@ describe('page action tools', () => {
       assert.ok(existsSync(outputPath), 'Download should land in workingDir')
       assert.ok(stagingDir, 'Download should use a staging directory')
       assert.ok(
-        stagingDir.startsWith(join(workingDir, 'browseros-dl-')),
+        stagingDir.startsWith(join(workingDir, 'pannamos-dl-')),
         'Staging directory should be created inside workingDir',
       )
       assert.ok(

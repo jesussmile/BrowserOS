@@ -91,10 +91,15 @@ export class AiSdkAgent {
     const originPageId = config.browserContext?.activeTab?.pageId
     const toolContext: ToolContext = {
       browser: config.browser,
-      directories: { workingDir: config.resolvedConfig.workingDir },
+      directories: {
+        workingDir: config.resolvedConfig.workingDir,
+        defaultOutputDir: config.resolvedConfig.defaultOutputDir,
+      },
       session: {
         origin: config.resolvedConfig.origin,
         originPageId,
+        conversationId: config.resolvedConfig.conversationId,
+        approvalPolicy: config.resolvedConfig.approvalPolicy,
       },
     }
     const allBrowserTools = buildBrowserToolSet(config.registry, toolContext)
@@ -113,16 +118,23 @@ export class AiSdkAgent {
 
     // Get Klavis tools from shared background handle (no per-session connection).
     // Only expose when user has enabled servers — matches old per-session gating.
-    const klavisTools =
+    const connectedManagedApps =
+      !config.resolvedConfig.chatMode &&
       config.klavisRef?.handle &&
       config.browserContext?.enabledMcpServers?.length
+        ? config.browserContext.enabledMcpServers
+        : []
+    const klavisTools =
+      config.klavisRef?.handle && connectedManagedApps.length
         ? buildKlavisToolSet(config.klavisRef.handle)
         : {}
 
     // Connect custom (non-Klavis) MCP servers per-session
-    const specs = await buildMcpServerSpecs({
-      browserContext: config.browserContext,
-    })
+    const specs = config.resolvedConfig.chatMode
+      ? []
+      : await buildMcpServerSpecs({
+          browserContext: config.browserContext,
+        })
     const { clients, tools: customMcpTools } = await createMcpClients(specs)
     const collidingToolNames = Object.keys(customMcpTools).filter(
       (name) => name in klavisTools,
@@ -132,7 +144,20 @@ export class AiSdkAgent {
         toolNames: collidingToolNames,
       })
     }
-    const rawExternalMcpTools = { ...klavisTools, ...customMcpTools }
+    const rawExternalMcpTools = config.resolvedConfig.chatMode
+      ? {}
+      : { ...klavisTools, ...customMcpTools }
+    if (
+      config.resolvedConfig.chatMode &&
+      (connectedManagedApps.length > 0 ||
+        config.browserContext?.customMcpServers?.length)
+    ) {
+      logger.info('Chat mode enabled, skipping external MCP tools', {
+        managedAppCount: connectedManagedApps.length,
+        customMcpServerCount:
+          config.browserContext?.customMcpServers?.length ?? 0,
+      })
+    }
 
     // Wrap external MCP tools (Klavis, custom) with metrics
     const externalMcpTools: ToolSet = {}
@@ -188,6 +213,9 @@ export class AiSdkAgent {
       delete tools.suggest_schedule
       delete tools.suggest_app_connection
     }
+    if (!config.klavisRef?.handle) {
+      delete tools.suggest_app_connection
+    }
 
     // Build system prompt with optional section exclusions
     const excludeSections: string[] = []
@@ -206,8 +234,9 @@ export class AiSdkAgent {
       scheduledTaskPageId: config.browserContext?.activeTab?.pageId,
       workspaceDir: config.resolvedConfig.workingDir,
       soulContent,
+      mode: config.resolvedConfig.mode,
       chatMode: config.resolvedConfig.chatMode,
-      connectedApps: config.browserContext?.enabledMcpServers,
+      connectedApps: connectedManagedApps,
       declinedApps: config.resolvedConfig.declinedApps,
       origin: config.resolvedConfig.origin,
     })
@@ -260,6 +289,7 @@ export class AiSdkAgent {
       conversationId: config.resolvedConfig.conversationId,
       provider: config.resolvedConfig.provider,
       model: config.resolvedConfig.model,
+      mode: config.resolvedConfig.mode,
       toolCount: Object.keys(tools).length,
     })
 

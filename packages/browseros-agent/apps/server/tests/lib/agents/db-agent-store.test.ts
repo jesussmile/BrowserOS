@@ -4,24 +4,21 @@
  */
 
 import { afterEach, describe, expect, it } from 'bun:test'
-import { mkdtempSync } from 'node:fs'
-import { rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { eq } from 'drizzle-orm'
 import { DbAgentStore } from '../../../src/lib/agents/db-agent-store'
-import { closeDb, initializeDb } from '../../../src/lib/db'
+import {
+  type DbHandle,
+  openBrowserOsDatabase,
+} from '../../../src/lib/db/client'
 import { agentDefinitions } from '../../../src/lib/db/schema'
 
 describe('DbAgentStore', () => {
-  const tempDirs: string[] = []
+  const handles: DbHandle[] = []
 
   afterEach(async () => {
-    closeDb()
-    await Promise.all(
-      tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
-    )
-    tempDirs.length = 0
+    for (const handle of handles.splice(0)) {
+      handle.sqlite.close()
+    }
   })
 
   it('creates, lists, loads, updates, and deletes named agents', async () => {
@@ -106,6 +103,28 @@ describe('DbAgentStore', () => {
     })
   })
 
+  it('persists local role summaries for agent listings after reload', async () => {
+    const { db, store } = createStoreWithDb()
+
+    const agent = await store.create({
+      name: 'Chief of Staff',
+      adapter: 'codex',
+      roleId: 'chief-of-staff',
+    })
+
+    expect(agent.role).toEqual({
+      roleSource: 'builtin',
+      roleId: 'chief-of-staff',
+      roleName: 'Chief of Staff',
+      shortDescription:
+        'Executive coordination, follow-ups, scheduling, and briefing support.',
+    })
+
+    const reloaded = new DbAgentStore({ db })
+    expect(await reloaded.get(agent.id)).toEqual(agent)
+    expect(await reloaded.list()).toEqual([agent])
+  })
+
   it('upserts existing records idempotently', async () => {
     const store = createStore()
 
@@ -152,11 +171,10 @@ describe('DbAgentStore', () => {
   }
 
   function createStoreWithDb() {
-    const dir = mkdtempSync(join(tmpdir(), 'browseros-db-agents-test-'))
-    tempDirs.push(dir)
-    const handle = initializeDb({
-      dbPath: join(dir, 'db', 'browseros.sqlite'),
+    const handle = openBrowserOsDatabase({
+      dbPath: ':memory:',
     })
+    handles.push(handle)
     return { db: handle.db, store: new DbAgentStore({ db: handle.db }) }
   }
 })

@@ -24,9 +24,13 @@ export const ConfiguredProvidersList: FC<ConfiguredProvidersListProps> = ({
   onEditProvider,
   onDeleteProvider,
 }) => {
+  const visibleProviders = providers.filter(
+    (provider) => provider.type !== 'browseros',
+  )
+
   return (
     <div className="space-y-3">
-      {providers.map((provider) => {
+      {visibleProviders.map((provider) => {
         const isBuiltIn = provider.id === 'browseros'
 
         return (

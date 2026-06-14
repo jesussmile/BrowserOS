@@ -34,3 +34,8 @@ packages/browseros/build/tools/
 .devtools/
 .omc/
 .llm/
+
+# Local validation artifacts
+.validation/
+**/.validation/
+output/

@@ -6,6 +6,7 @@
 
 import { StreamableHTTPTransport } from '@hono/mcp'
 import { Hono } from 'hono'
+import { CHAT_MODE_ALLOWED_TOOLS } from '../../agent/chat-mode'
 import type { Browser } from '../../browser/browser'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
@@ -21,6 +22,7 @@ interface McpRouteDeps {
   registry: ToolRegistry
   browser: Browser
   executionDir: string
+  defaultOutputDir?: string
   resourcesDir: string
   klavisRef?: KlavisProxyRef
 }
@@ -67,6 +69,9 @@ export function createMcpRoutes(deps: McpRouteDeps) {
     const defaultWindowId = parseOptionalNumber(
       c.req.header('X-BrowserOS-Default-Window-Id'),
     )
+    const toolMode =
+      c.req.query('mode') ?? c.req.header('X-BrowserOS-Tool-Mode') ?? undefined
+    const chatMode = toolMode === 'chat'
 
     // Per-request server + transport: no shared state, no race conditions,
     // no ID collisions. Required by MCP SDK 1.26.0+ security fix (GHSA-345p-7cg4-v4c7).
@@ -74,6 +79,8 @@ export function createMcpRoutes(deps: McpRouteDeps) {
       ...deps,
       observer,
       defaultWindowId,
+      allowedToolNames: chatMode ? CHAT_MODE_ALLOWED_TOOLS : undefined,
+      externalToolsEnabled: !chatMode,
     })
     const transport = new StreamableHTTPTransport({
       sessionIdGenerator: undefined,

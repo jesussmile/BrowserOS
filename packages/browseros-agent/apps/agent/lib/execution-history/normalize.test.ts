@@ -112,6 +112,29 @@ describe('normalizeExecutionSteps', () => {
 
     expect(normalized.steps[0]?.previewText).toBe('Completed successfully')
   })
+
+  it('does not keep raw tool output in execution history', () => {
+    const normalized = normalizeExecutionSteps({
+      assistantMessage: createAssistantMessage([
+        asMessagePart({
+          type: 'tool-filesystem_bash',
+          toolCallId: 'tool-1',
+          state: 'output-available',
+          input: { command: 'dir' },
+          output: {
+            content: [{ type: 'text', text: 'x'.repeat(200_000) }],
+          },
+        }),
+      ]),
+      nowIso: '2026-03-26T10:00:00.000Z',
+    })
+
+    expect(JSON.stringify(normalized.steps[0]?.output).length).toBeLessThan(100)
+    expect(normalized.steps[0]?.output).toMatchObject({
+      _pannamosOmitted: true,
+      preview: 'Completed successfully',
+    })
+  })
 })
 
 describe('execution history text helpers', () => {

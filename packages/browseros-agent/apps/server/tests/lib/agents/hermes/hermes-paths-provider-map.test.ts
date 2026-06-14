@@ -17,18 +17,18 @@ import { getHermesProviderMapping } from '../../../../src/lib/agents/hermes/herm
 
 describe('Hermes adapter helpers', () => {
   it('resolves Hermes state under the BrowserOS VM state root', () => {
-    const browserosDir = '/tmp/browseros-test'
+    const browserosDir = '/tmp/pannamos-test'
 
     expect(getHermesHarnessHostDir(browserosDir)).toBe(
-      '/tmp/browseros-test/vm/hermes/harness',
+      join(browserosDir, 'vm', 'hermes', 'harness'),
     )
     expect(
       getHermesAgentHomeHostDir({ browserosDir, agentId: 'agent-1' }),
-    ).toBe('/tmp/browseros-test/vm/hermes/harness/agent-1/home')
+    ).toBe(join(browserosDir, 'vm', 'hermes', 'harness', 'agent-1', 'home'))
   })
 
   it('writes per-agent provider config from the Hermes provider map', async () => {
-    const browserosDir = await mkdtemp(join(tmpdir(), 'browseros-hermes-'))
+    const browserosDir = await mkdtemp(join(tmpdir(), 'pannamos-hermes-'))
     try {
       const mapping = getHermesProviderMapping('openai')
       expect(mapping).toEqual({

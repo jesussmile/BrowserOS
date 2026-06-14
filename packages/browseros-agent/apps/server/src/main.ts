@@ -3,7 +3,7 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * BrowserOS Server Application
+ * PannamOS Server Application
  *
  * Manages server lifecycle: initialization, startup, and shutdown.
  */
@@ -11,6 +11,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
+import { PATHS } from '@browseros/shared/constants/paths'
 import { createHttpServer } from './api/server'
 import { CdpBackend } from './browser/backends/cdp'
 import { Browser } from './browser/browser'
@@ -45,12 +46,15 @@ export class Application {
   }
 
   async start(): Promise<void> {
-    logger.info(`Starting BrowserOS Server v${VERSION}`)
+    logger.info(`Starting PannamOS Server v${VERSION}`)
     logger.debug('Directory config', {
       executionDir: path.resolve(this.config.executionDir),
+      outputsDir: path.resolve(this.config.outputsDir),
       resourcesDir: path.resolve(this.config.resourcesDir),
+      storageRoot: path.resolve(this.config.storageRoot),
     })
 
+    this.configureStateDirectory()
     configureClaudeRuntime()
     configureCodexRuntime()
     await this.initCoreServices()
@@ -81,7 +85,9 @@ export class Application {
         browser,
         registry,
         browserosId: identity.getBrowserOSId(),
+        storageRoot: this.config.storageRoot,
         executionDir: this.config.executionDir,
+        outputsDir: this.config.outputsDir,
         resourcesDir: this.config.resourcesDir,
         codegenServiceUrl: this.config.codegenServiceUrl,
         aiSdkDevtoolsEnabled: this.config.aiSdkDevtoolsEnabled,
@@ -158,7 +164,7 @@ export class Application {
     })
 
     const browserosId = identity.getBrowserOSId()
-    logger.info('BrowserOS ID initialized', {
+    logger.info('PannamOS local instance ID initialized', {
       browserosId: browserosId.slice(0, 12),
       fromConfig: !!this.config.instanceInstallId,
     })
@@ -189,8 +195,41 @@ export class Application {
     })
   }
 
+  private configureStateDirectory(): void {
+    const storageRoot = path.isAbsolute(this.config.storageRoot)
+      ? this.config.storageRoot
+      : path.resolve(process.cwd(), this.config.storageRoot)
+    const resolvedExecutionDir = path.isAbsolute(this.config.executionDir)
+      ? this.config.executionDir
+      : path.resolve(process.cwd(), this.config.executionDir)
+    const resolvedOutputsDir = path.isAbsolute(this.config.outputsDir)
+      ? this.config.outputsDir
+      : path.resolve(process.cwd(), this.config.outputsDir)
+
+    try {
+      fs.mkdirSync(storageRoot, { recursive: true })
+      fs.mkdirSync(resolvedExecutionDir, { recursive: true })
+      fs.mkdirSync(resolvedOutputsDir, { recursive: true })
+    } catch (error) {
+      throw new Error(
+        `Failed to create PannamOS storage directories below ${storageRoot}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+    }
+
+    process.env.PANNAMOS_STORAGE_ROOT = storageRoot
+    process.env.PANNAMOS_OUTPUTS_DIR = resolvedOutputsDir
+    process.env.BROWSEROS_DIR = resolvedExecutionDir
+    logger.info('Using configured execution directory for local server state', {
+      storageRoot,
+      stateDir: resolvedExecutionDir,
+      outputsDir: resolvedOutputsDir,
+    })
+  }
+
   private configureLogDirectory(): void {
-    const logDir = this.config.executionDir
+    const logDir = path.join(this.config.storageRoot, PATHS.LOGS_DIR_NAME)
     const resolvedDir = path.isAbsolute(logDir)
       ? logDir
       : path.resolve(process.cwd(), logDir)

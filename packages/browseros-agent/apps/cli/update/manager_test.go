@@ -10,6 +10,7 @@ import (
 )
 
 func TestManagerCachedNotice(t *testing.T) {
+	t.Setenv(ManifestURLEnv, "https://updates.example.test/manifest.json")
 	manager := NewManager(Options{
 		CurrentVersion: "1.0.0",
 		Automatic:      true,
@@ -23,6 +24,7 @@ func TestManagerCachedNotice(t *testing.T) {
 }
 
 func TestManagerShouldCheck(t *testing.T) {
+	t.Setenv(ManifestURLEnv, "https://updates.example.test/manifest.json")
 	manager := NewManager(Options{
 		CurrentVersion: "1.0.0",
 		Automatic:      true,
@@ -35,6 +37,24 @@ func TestManagerShouldCheck(t *testing.T) {
 
 	if !manager.ShouldCheck() {
 		t.Fatal("ShouldCheck() = false, want true")
+	}
+}
+
+func TestManagerDisablesAutomaticChecksWithoutPrivateManifest(t *testing.T) {
+	t.Setenv(ManifestURLEnv, "")
+
+	manager := NewManager(Options{
+		CurrentVersion: "1.0.0",
+		Automatic:      true,
+	})
+
+	if manager.AutomaticEnabled() {
+		t.Fatal("AutomaticEnabled() = true, want false without private manifest")
+	}
+
+	_, err := manager.CheckNow(context.Background())
+	if err == nil {
+		t.Fatal("CheckNow() error = nil, want disabled update error")
 	}
 }
 
@@ -146,6 +166,7 @@ func TestManagerSaveAppliedState(t *testing.T) {
 
 func TestAutomaticEnabledSkipsForPackageManagerInstall(t *testing.T) {
 	t.Setenv("BROWSEROS_INSTALL_METHOD", "npm")
+	t.Setenv(ManifestURLEnv, "https://updates.example.test/manifest.json")
 
 	manager := NewManager(Options{
 		CurrentVersion: "1.0.0",
@@ -159,6 +180,7 @@ func TestAutomaticEnabledSkipsForPackageManagerInstall(t *testing.T) {
 
 func TestAutomaticEnabledAllowsNormalInstall(t *testing.T) {
 	t.Setenv("BROWSEROS_INSTALL_METHOD", "")
+	t.Setenv(ManifestURLEnv, "https://updates.example.test/manifest.json")
 
 	manager := NewManager(Options{
 		CurrentVersion: "1.0.0",

@@ -1,12 +1,10 @@
-import { mkdtempSync } from 'node:fs'
+import { existsSync, mkdtempSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { TEST_PORTS } from '@browseros/shared/constants/ports'
 
-const DEFAULT_BINARY_PATH =
-  process.env.BROWSEROS_BINARY ??
-  '/Applications/BrowserOS.app/Contents/MacOS/BrowserOS'
+const DEFAULT_BINARY_PATH = process.env.BROWSEROS_BINARY ?? defaultBinaryPath()
 const PORT_SCAN_RANGE = 100
 
 export interface RuntimePorts {
@@ -32,6 +30,28 @@ function parseExtraArgs(value: string | undefined): string[] {
     .split(/\s+/)
     .map((part) => part.trim())
     .filter((part) => part.length > 0)
+}
+
+function defaultBinaryPath(): string {
+  if (process.platform !== 'win32') {
+    const candidates = ['/Applications/PannamOS.app/Contents/MacOS/PannamOS']
+    return candidates.find((path) => existsSync(path)) ?? candidates[0]
+  }
+
+  const localAppData = process.env.LOCALAPPDATA
+  const candidates = [
+    localAppData && join(localAppData, 'PannamOS/Application/chrome.exe'),
+    localAppData && join(localAppData, 'PannamOS/Application/PannamOS.exe'),
+    localAppData && join(localAppData, 'Chromium/Application/chrome.exe'),
+  ].filter((path): path is string => Boolean(path))
+
+  return (
+    candidates.find((path) => existsSync(path)) ??
+    join(
+      process.env.PROGRAMFILES ?? 'C:/Program Files',
+      'Google/Chrome/Application/chrome.exe',
+    )
+  )
 }
 
 function parsePort(
@@ -85,7 +105,11 @@ function resolveFixedPort(
     | 'BROWSEROS_CDP_PORT'
     | 'BROWSEROS_SERVER_PORT'
     | 'BROWSEROS_EXTENSION_PORT',
+  options: { ignoreFixedPorts?: boolean } = {},
 ): number | undefined {
+  if (options.ignoreFixedPorts) {
+    return undefined
+  }
   const testPort = parsePort(process.env[testEnvName], testEnvName)
   if (testPort !== undefined) {
     return testPort
@@ -108,18 +132,33 @@ function assertUniquePorts(ports: RuntimePorts): void {
 export async function resolveRuntimePorts(): Promise<{
   ports: RuntimePorts
   usesFixedPorts: boolean
+}>
+export async function resolveRuntimePorts(options: {
+  ignoreFixedPorts?: boolean
+}): Promise<{
+  ports: RuntimePorts
+  usesFixedPorts: boolean
+}>
+export async function resolveRuntimePorts(
+  options: { ignoreFixedPorts?: boolean } = {},
+): Promise<{
+  ports: RuntimePorts
+  usesFixedPorts: boolean
 }> {
   const cdpOverride = resolveFixedPort(
     'BROWSEROS_TEST_CDP_PORT',
     'BROWSEROS_CDP_PORT',
+    options,
   )
   const serverOverride = resolveFixedPort(
     'BROWSEROS_TEST_SERVER_PORT',
     'BROWSEROS_SERVER_PORT',
+    options,
   )
   const extensionOverride = resolveFixedPort(
     'BROWSEROS_TEST_EXTENSION_PORT',
     'BROWSEROS_EXTENSION_PORT',
+    options,
   )
 
   const reserved = new Set<number>()
@@ -144,10 +183,19 @@ export async function resolveRuntimePorts(): Promise<{
   }
 }
 
-export async function createTestRuntimePlan(): Promise<TestRuntimePlan> {
-  const resolvedPorts = await resolveRuntimePorts()
-  const userDataDir = mkdtempSync(join(tmpdir(), 'browseros-test-'))
-  const headless = process.env.BROWSEROS_TEST_HEADLESS === 'true'
+export async function createTestRuntimePlan(): Promise<TestRuntimePlan>
+export async function createTestRuntimePlan(options: {
+  ignoreFixedPorts?: boolean
+}): Promise<TestRuntimePlan>
+export async function createTestRuntimePlan(
+  options: { ignoreFixedPorts?: boolean } = {},
+): Promise<TestRuntimePlan> {
+  const resolvedPorts = await resolveRuntimePorts(options)
+  const userDataDir = mkdtempSync(join(tmpdir(), 'pannamos-test-'))
+  const headless =
+    process.env.BROWSEROS_TEST_HEADLESS === undefined
+      ? process.platform === 'win32'
+      : process.env.BROWSEROS_TEST_HEADLESS === 'true'
   const extraArgs = parseExtraArgs(process.env.BROWSEROS_TEST_EXTRA_ARGS)
 
   return {

@@ -3,7 +3,7 @@
  * @license
  * Copyright 2025 BrowserOS
  *
- * BrowserOS Server - Entry Point
+ * PannamOS Server - Entry Point
  */
 
 // Runtime check for Bun

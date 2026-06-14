@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000000..70ad8710a39b7
 --- /dev/null
 +++ b/chrome/browser/browseros/extensions/browseros_extension_loader.cc
-@@ -0,0 +1,269 @@
+@@ -0,0 +1,286 @@
 +// Copyright 2024 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -238,13 +238,30 @@ index 0000000000000..70ad8710a39b7
 +            << " bundled extensions immediately";
 +
 +  for (const std::string& id : extension_ids_) {
-+    if (registry->GetInstalledExtension(id) || pending->IsIdPending(id)) {
-+      continue;
-+    }
-+
 +    auto it = bundled_versions_.find(id);
 +    if (it == bundled_versions_.end()) {
 +      continue;
++    }
++
++    const base::Version bundled_version(it->second);
++    if (!bundled_version.IsValid()) {
++      LOG(WARNING) << "browseros: Invalid bundled extension version for "
++                   << id << ": " << it->second;
++      continue;
++    }
++
++    const extensions::Extension* installed =
++        registry->GetInstalledExtension(id);
++    if (installed &&
++        installed->version().CompareTo(bundled_version) >= 0) {
++      LOG(INFO) << "browseros: Bundled " << id << " already installed at v"
++                << installed->version().GetString();
++      continue;
++    }
++
++    if (pending->IsIdPending(id)) {
++      LOG(INFO) << "browseros: Installing bundled " << id
++                << " despite existing pending external entry";
 +    }
 +
 +    base::FilePath crx_path = bundled_crx_base_path_.Append(
@@ -254,7 +271,7 @@ index 0000000000000..70ad8710a39b7
 +
 +    pending->AddFromExternalFile(
 +        id, extensions::mojom::ManifestLocation::kExternalComponent,
-+        base::Version(it->second),
++        bundled_version,
 +        extensions::Extension::WAS_INSTALLED_BY_DEFAULT, false);
 +
 +    scoped_refptr<extensions::CrxInstaller> installer(

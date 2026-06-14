@@ -7,7 +7,7 @@ export interface McpTool {
 const JSONRPC_VERSION = '2.0'
 const MCP_PROTOCOL_VERSION = '2025-11-25'
 const MCP_CLIENT_INFO = {
-  name: 'browseros-settings',
+  name: 'pannamos-settings',
   version: '1.0.0',
 } as const
 
@@ -185,7 +185,7 @@ function normalizeTools(result: ListToolsResult): {
 }
 
 /**
- * Fetches available tools from the BrowserOS MCP server without importing the
+ * Fetches available tools from the PannamOS MCP server without importing the
  * MCP SDK runtime, which can generate validators with `new Function` in tests
  * and browser extension contexts.
  * @public

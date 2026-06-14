@@ -15,6 +15,7 @@ interface AgentSummaryChipsProps {
   adapter: HarnessAgentAdapter | 'unknown'
   modelLabel: string | null
   reasoningEffort: string | null
+  roleLabel?: string | null
   /** When unhealthy, the adapter label dims and a warning chip appears. */
   adapterHealth: AgentAdapterHealth | null
 }
@@ -27,9 +28,11 @@ export const AgentSummaryChips: FC<AgentSummaryChipsProps> = ({
   adapter,
   modelLabel,
   reasoningEffort,
+  roleLabel,
   adapterHealth,
 }) => {
   const parts = [adapterLabel(adapter)]
+  if (roleLabel) parts.push(roleLabel)
   if (modelLabel) parts.push(modelLabel)
   if (reasoningEffort) parts.push(reasoningEffort)
   const unhealthy = adapterHealth?.healthy === false

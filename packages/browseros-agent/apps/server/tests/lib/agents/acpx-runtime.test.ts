@@ -42,8 +42,8 @@ describe('AcpxRuntime', () => {
   })
 
   it('uses acpx/runtime to ensure a session and stream a turn', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'browseros-acpx-runtime-'))
-    const stateDir = await mkdtemp(join(tmpdir(), 'browseros-acpx-state-'))
+    const cwd = await mkdtemp(join(tmpdir(), 'pannamos-acpx-runtime-'))
+    const stateDir = await mkdtemp(join(tmpdir(), 'pannamos-acpx-state-'))
     tempDirs.push(cwd, stateDir)
     const calls: Array<{ method: string; input: unknown }> = []
     const runtimeFactory = (options: AcpRuntimeOptions): AcpxCoreRuntime => {
@@ -103,7 +103,7 @@ describe('AcpxRuntime', () => {
     expect(events).toEqual([
       {
         type: 'status',
-        text: 'Requested model is stored on the BrowserOS agent, but this acpx/runtime version does not expose public model control. Using adapter default.',
+        text: 'Requested model is stored on the PannamOS agent, but this acpx/runtime version does not expose public model control. Using adapter default.',
       },
       {
         type: 'text_delta',
@@ -128,9 +128,9 @@ describe('AcpxRuntime', () => {
 
   it('uses the shared harness workspace as the default cwd and composes the ACPX run prompt', async () => {
     const browserosDir = await mkdtemp(
-      join(tmpdir(), 'browseros-acpx-browseros-'),
+      join(tmpdir(), 'pannamos-acpx-pannamos-'),
     )
-    const stateDir = await mkdtemp(join(tmpdir(), 'browseros-acpx-state-'))
+    const stateDir = await mkdtemp(join(tmpdir(), 'pannamos-acpx-state-'))
     tempDirs.push(browserosDir, stateDir)
     const calls: Array<{ method: string; input: unknown }> = []
     const runtime = new AcpxRuntime({
@@ -170,10 +170,10 @@ describe('AcpxRuntime', () => {
 
   it('uses selected cwd in the runtime fingerprint', async () => {
     const browserosDir = await mkdtemp(
-      join(tmpdir(), 'browseros-acpx-browseros-'),
+      join(tmpdir(), 'pannamos-acpx-pannamos-'),
     )
-    const stateDir = await mkdtemp(join(tmpdir(), 'browseros-acpx-state-'))
-    const selected = await mkdtemp(join(tmpdir(), 'browseros-acpx-selected-'))
+    const stateDir = await mkdtemp(join(tmpdir(), 'pannamos-acpx-state-'))
+    const selected = await mkdtemp(join(tmpdir(), 'pannamos-acpx-selected-'))
     tempDirs.push(browserosDir, stateDir, selected)
     const calls: Array<{ method: string; input: unknown }> = []
     const runtime = new AcpxRuntime({
@@ -206,9 +206,9 @@ describe('AcpxRuntime', () => {
 
   it('surfaces a clear error when selected cwd no longer exists', async () => {
     const browserosDir = await mkdtemp(
-      join(tmpdir(), 'browseros-acpx-browseros-'),
+      join(tmpdir(), 'pannamos-acpx-pannamos-'),
     )
-    const stateDir = await mkdtemp(join(tmpdir(), 'browseros-acpx-state-'))
+    const stateDir = await mkdtemp(join(tmpdir(), 'pannamos-acpx-state-'))
     tempDirs.push(browserosDir, stateDir)
     const missingCwd = join(browserosDir, 'missing-workspace')
     const calls: Array<{ method: string; input: unknown }> = []
@@ -237,9 +237,9 @@ describe('AcpxRuntime', () => {
 
   it('loads history from the latest runtime-state session key', async () => {
     const browserosDir = await mkdtemp(
-      join(tmpdir(), 'browseros-acpx-browseros-'),
+      join(tmpdir(), 'pannamos-acpx-pannamos-'),
     )
-    const stateDir = await mkdtemp(join(tmpdir(), 'browseros-acpx-state-'))
+    const stateDir = await mkdtemp(join(tmpdir(), 'pannamos-acpx-state-'))
     tempDirs.push(browserosDir, stateDir)
     const sessionStore = createRuntimeStore({ stateDir })
     const agent = makeAgent({ id: 'agent-1', adapter: 'codex' })
@@ -269,8 +269,8 @@ describe('AcpxRuntime', () => {
   })
 
   it('maps persisted acpx session records into rich history entries', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'browseros-acpx-runtime-'))
-    const stateDir = await mkdtemp(join(tmpdir(), 'browseros-acpx-state-'))
+    const cwd = await mkdtemp(join(tmpdir(), 'pannamos-acpx-runtime-'))
+    const stateDir = await mkdtemp(join(tmpdir(), 'pannamos-acpx-state-'))
     tempDirs.push(cwd, stateDir)
     const timestamp = '2026-04-28T20:00:00.000Z'
     const agent: AgentDefinition = {
@@ -383,9 +383,9 @@ describe('AcpxRuntime', () => {
     })
   })
 
-  it('shows only the user request for persisted BrowserOS-wrapped prompts', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'browseros-acpx-runtime-'))
-    const stateDir = await mkdtemp(join(tmpdir(), 'browseros-acpx-state-'))
+  it('shows only the user request for persisted PannamOS-wrapped prompts', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'pannamos-acpx-runtime-'))
+    const stateDir = await mkdtemp(join(tmpdir(), 'pannamos-acpx-state-'))
     tempDirs.push(cwd, stateDir)
     const timestamp = '2026-04-28T20:00:00.000Z'
     const agent: AgentDefinition = {
@@ -422,9 +422,9 @@ describe('AcpxRuntime', () => {
             content: [
               {
                 Text: `<role>
-You are BrowserOS - a browser agent with full control of a Chromium browser through the BrowserOS MCP server.
+You are PannamOS - a browser agent with full control of a Chromium browser through the PannamOS MCP server.
 
-Use the BrowserOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
+Use the PannamOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
 </role>
 
 <user_request>
@@ -460,8 +460,8 @@ open &lt;example.com&gt;
   })
 
   it('strips the inner formatUserMessage envelope from history payloads', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'browseros-acpx-runtime-'))
-    const stateDir = await mkdtemp(join(tmpdir(), 'browseros-acpx-state-'))
+    const cwd = await mkdtemp(join(tmpdir(), 'pannamos-acpx-runtime-'))
+    const stateDir = await mkdtemp(join(tmpdir(), 'pannamos-acpx-state-'))
     tempDirs.push(cwd, stateDir)
     const timestamp = '2026-04-29T20:00:00.000Z'
     const agent: AgentDefinition = {
@@ -479,9 +479,9 @@ open &lt;example.com&gt;
     // `buildBrowserosAcpPrompt` runs `escapePromptTagText` over the
     // entire payload before adding the outer envelope.
     const wrapped = `<role>
-You are BrowserOS - a browser agent with full control of a Chromium browser through the BrowserOS MCP server.
+You are PannamOS - a browser agent with full control of a Chromium browser through the PannamOS MCP server.
 
-Use the BrowserOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
+Use the PannamOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
 </role>
 
 <user_request>
@@ -552,9 +552,9 @@ summarise this
       // On-wire form: `escapePromptTagText` escapes the inner tags
       // before the outer envelope is added.
       const wrapped = `<role>
-You are BrowserOS - a browser agent with full control of a Chromium browser through the BrowserOS MCP server.
+You are PannamOS - a browser agent with full control of a Chromium browser through the PannamOS MCP server.
 
-Use the BrowserOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
+Use the PannamOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
 </role>
 
 <user_request>
@@ -587,9 +587,9 @@ just inner
 
     it('strips the outer envelope when only the outer wrapper is present', () => {
       const outerOnly = `<role>
-You are BrowserOS - a browser agent with full control of a Chromium browser through the BrowserOS MCP server.
+You are PannamOS - a browser agent with full control of a Chromium browser through the PannamOS MCP server.
 
-Use the BrowserOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
+Use the PannamOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
 </role>
 
 <user_request>
@@ -599,7 +599,7 @@ just outer
     })
 
     it('strips an arbitrary single-line role envelope', () => {
-      const wrapped = `<role>You are running inside BrowserOS through an ACP adapter.</role>
+      const wrapped = `<role>You are running inside PannamOS through an ACP adapter.</role>
 
 <user_request>
 Need another report this time as pdf, a comparison between both yahoo and google reports you created...
@@ -611,7 +611,7 @@ Need another report this time as pdf, a comparison between both yahoo and google
 
     it('strips the ACPX runtime envelope when it wraps persisted history', () => {
       const wrapped = `<browseros_acpx_runtime version="2026-05-02.v1">
-You are BrowserOS, an ACPX browser agent.
+You are PannamOS, an ACPX browser agent.
 
 Skill root: /tmp/runtime-skills
 </browseros_acpx_runtime>
@@ -624,9 +624,9 @@ new runtime prompt
 
     it('removes a selected_text block with attribute string', () => {
       const wrapped = `<role>
-You are BrowserOS - a browser agent with full control of a Chromium browser through the BrowserOS MCP server.
+You are PannamOS - a browser agent with full control of a Chromium browser through the PannamOS MCP server.
 
-Use the BrowserOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
+Use the PannamOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
 </role>
 
 <user_request>
@@ -645,9 +645,9 @@ question with selection
 
     it('is idempotent — applying twice equals applying once', () => {
       const wrapped = `<role>
-You are BrowserOS - a browser agent with full control of a Chromium browser through the BrowserOS MCP server.
+You are PannamOS - a browser agent with full control of a Chromium browser through the PannamOS MCP server.
 
-Use the BrowserOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
+Use the PannamOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
 </role>
 
 <user_request>
@@ -684,9 +684,9 @@ hello
       const escapeForPrompt = (value: string) =>
         value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       const ROLE = `<role>
-You are BrowserOS - a browser agent with full control of a Chromium browser through the BrowserOS MCP server.
+You are PannamOS - a browser agent with full control of a Chromium browser through the PannamOS MCP server.
 
-Use the BrowserOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
+Use the PannamOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
 </role>`
       const wrapped = `${ROLE}
 
@@ -703,9 +703,9 @@ ${escapeForPrompt(formatted)}
       // a user typing `<USER_QUERY>foo</USER_QUERY>` literally
       // produces after formatUserMessage + buildBrowserosAcpPrompt.
       const wrapped = `<role>
-You are BrowserOS - a browser agent with full control of a Chromium browser through the BrowserOS MCP server.
+You are PannamOS - a browser agent with full control of a Chromium browser through the PannamOS MCP server.
 
-Use the BrowserOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
+Use the PannamOS MCP server for all browser tasks, including browsing the web, interacting with pages, inspecting browser state, and managing tabs, windows, bookmarks, and history.
 </role>
 
 <user_request>
@@ -722,8 +722,8 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
   it('continues the turn when runtime config control is unavailable', async () => {
     const calls: Array<{ method: string; input: unknown }> = []
     const runtime = new AcpxRuntime({
-      cwd: '/tmp/browseros-acpx-runtime',
-      stateDir: '/tmp/browseros-acpx-state',
+      cwd: '/tmp/pannamos-acpx-runtime',
+      stateDir: '/tmp/pannamos-acpx-state',
       runtimeFactory: () => createFakeAcpRuntime(calls, { failConfig: true }),
     })
     const agent: AgentDefinition = {
@@ -761,11 +761,11 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
     })
   })
 
-  it('configures BrowserOS MCP and wraps turns with browser instructions', async () => {
+  it('configures PannamOS MCP and wraps turns with browser instructions', async () => {
     const calls: Array<{ method: string; input: unknown }> = []
     const runtime = new AcpxRuntime({
-      cwd: '/tmp/browseros-acpx-runtime',
-      stateDir: '/tmp/browseros-acpx-state',
+      cwd: '/tmp/pannamos-acpx-runtime',
+      stateDir: '/tmp/pannamos-acpx-state',
       browserosServerPort: 9321,
       runtimeFactory: (options) => {
         calls.push({ method: 'createRuntime', input: options })
@@ -796,7 +796,7 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
       mcpServers: [
         {
           type: 'http',
-          name: 'browseros',
+          name: 'pannamos',
           url: 'http://127.0.0.1:9321/mcp',
           headers: [],
         },
@@ -811,11 +811,139 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
     expect(text).toContain('<user_request>\nopen example.com\n</user_request>')
   })
 
+  it('adds local custom MCP connectors to ACP runtime config and skips remote URLs', async () => {
+    const calls: Array<{ method: string; input: unknown }> = []
+    const probeServer = Bun.serve({
+      port: 0,
+      fetch() {
+        return Response.json({
+          jsonrpc: '2.0',
+          id: 0,
+          result: { protocolVersion: '2025-03-26', capabilities: {} },
+        })
+      },
+    })
+    const localMcpUrl = `http://127.0.0.1:${probeServer.port}/mcp`
+    const runtime = new AcpxRuntime({
+      cwd: '/tmp/pannamos-acpx-runtime',
+      stateDir: '/tmp/pannamos-acpx-state',
+      browserosServerPort: 9321,
+      runtimeFactory: (options) => {
+        calls.push({ method: 'createRuntime', input: options })
+        return createFakeAcpRuntime(calls)
+      },
+    })
+    const agent: AgentDefinition = {
+      id: 'agent-1',
+      name: 'Browser bot',
+      adapter: 'codex',
+      permissionMode: 'approve-all',
+      sessionKey: 'agent:agent-1:main',
+      createdAt: 1000,
+      updatedAt: 1000,
+    }
+
+    try {
+      await collectStream(
+        await runtime.send({
+          agent,
+          sessionId: 'main',
+          sessionKey: agent.sessionKey,
+          message: 'open mail',
+          customMcpServers: [
+            {
+              name: 'Gmail',
+              url: localMcpUrl,
+            },
+            {
+              name: 'Remote',
+              url: 'https://mcp.example.com/sse',
+            },
+          ],
+          permissionMode: 'approve-all',
+        }),
+      )
+    } finally {
+      probeServer.stop(true)
+    }
+
+    expect(calls[0]?.input).toMatchObject({
+      mcpServers: [
+        {
+          type: 'http',
+          name: 'pannamos',
+          url: 'http://127.0.0.1:9321/mcp',
+          headers: [],
+        },
+        {
+          type: 'http',
+          name: 'custom-Gmail',
+          url: localMcpUrl,
+          headers: [],
+        },
+      ],
+    })
+    const runtimeInput = getCreateRuntimeOptions(calls)
+    expect(runtimeInput.mcpServers?.map((server) => server.name)).not.toContain(
+      'custom-Remote',
+    )
+  })
+
+  it('uses read-only PannamOS MCP and skips custom MCP connectors in chat mode', async () => {
+    const calls: Array<{ method: string; input: unknown }> = []
+    const runtime = new AcpxRuntime({
+      cwd: '/tmp/pannamos-acpx-runtime',
+      stateDir: '/tmp/pannamos-acpx-state',
+      browserosServerPort: 9321,
+      runtimeFactory: (options) => {
+        calls.push({ method: 'createRuntime', input: options })
+        return createFakeAcpRuntime(calls)
+      },
+    })
+    const agent: AgentDefinition = {
+      id: 'agent-1',
+      name: 'Chat bot',
+      adapter: 'codex',
+      permissionMode: 'approve-all',
+      sessionKey: 'agent:agent-1:main',
+      createdAt: 1000,
+      updatedAt: 1000,
+    }
+
+    await collectStream(
+      await runtime.send({
+        agent,
+        sessionId: 'main',
+        sessionKey: agent.sessionKey,
+        message: 'summarize this page',
+        mode: 'chat',
+        customMcpServers: [{ name: 'Gmail', url: 'http://127.0.0.1:8765/mcp' }],
+        permissionMode: 'approve-all',
+      }),
+    )
+
+    expect(calls[0]?.input).toMatchObject({
+      mcpServers: [
+        {
+          type: 'http',
+          name: 'pannamos',
+          url: 'http://127.0.0.1:9321/mcp?mode=chat',
+          headers: [],
+        },
+      ],
+    })
+    const runtimeInput = getCreateRuntimeOptions(calls)
+    expect(runtimeInput.mcpServers).toHaveLength(1)
+    expect(runtimeInput.mcpServers?.map((server) => server.name)).not.toContain(
+      'custom-Gmail',
+    )
+  })
+
   it('escapes user request tag boundaries in wrapped prompts', async () => {
     const calls: Array<{ method: string; input: unknown }> = []
     const runtime = new AcpxRuntime({
-      cwd: '/tmp/browseros-acpx-runtime',
-      stateDir: '/tmp/browseros-acpx-state',
+      cwd: '/tmp/pannamos-acpx-runtime',
+      stateDir: '/tmp/pannamos-acpx-state',
       runtimeFactory: () => createFakeAcpRuntime(calls),
     })
     const agent: AgentDefinition = {
@@ -851,8 +979,8 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
   it('does not pass native CLI permission flags to ACP adapters', async () => {
     const calls: Array<{ method: string; input: unknown }> = []
     const runtime = new AcpxRuntime({
-      cwd: '/tmp/browseros-acpx-runtime',
-      stateDir: '/tmp/browseros-acpx-state',
+      cwd: '/tmp/pannamos-acpx-runtime',
+      stateDir: '/tmp/pannamos-acpx-state',
       runtimeFactory: (options) => {
         calls.push({ method: 'createRuntime', input: options })
         return createFakeAcpRuntime(calls)
@@ -889,9 +1017,9 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
 
   it('injects AGENT_HOME without CLAUDE_CONFIG_DIR into Claude ACP command resolution', async () => {
     const browserosDir = await mkdtemp(
-      join(tmpdir(), 'browseros-acpx-browseros-'),
+      join(tmpdir(), 'pannamos-acpx-pannamos-'),
     )
-    const stateDir = await mkdtemp(join(tmpdir(), 'browseros-acpx-state-'))
+    const stateDir = await mkdtemp(join(tmpdir(), 'pannamos-acpx-state-'))
     tempDirs.push(browserosDir, stateDir)
     const calls: Array<{ method: string; input: unknown }> = []
     const runtime = new AcpxRuntime({
@@ -919,16 +1047,16 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
     expect(command).toContain('env AGENT_HOME=')
     expect(command).not.toContain('CLAUDE_CONFIG_DIR=')
     expect(command).not.toContain('CODEX_HOME=')
-    // Spawn must go through BrowserOS's own npx command for the official
+    // Spawn must go through PannamOS's own npx command for the official
     // claude-agent-acp package, not a bare `claude` binary.
     expect(command).toContain('npx -y @agentclientprotocol/claude-agent-acp')
   })
 
   it('injects AGENT_HOME and CODEX_HOME into Codex ACP command resolution', async () => {
     const browserosDir = await mkdtemp(
-      join(tmpdir(), 'browseros-acpx-browseros-'),
+      join(tmpdir(), 'pannamos-acpx-pannamos-'),
     )
-    const stateDir = await mkdtemp(join(tmpdir(), 'browseros-acpx-state-'))
+    const stateDir = await mkdtemp(join(tmpdir(), 'pannamos-acpx-state-'))
     tempDirs.push(browserosDir, stateDir)
     const calls: Array<{ method: string; input: unknown }> = []
     const runtime = new AcpxRuntime({
@@ -953,10 +1081,11 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
 
     const command =
       getCreateRuntimeOptions(calls).agentRegistry.resolve('codex')
+    const normalizedCommand = command.replaceAll('\\', '/')
     expect(command).toContain('env AGENT_HOME=')
     expect(command).toContain('CODEX_HOME=')
-    expect(command).toContain('/runtime/codex-home')
-    // Spawn must go through BrowserOS's own npx command for the official
+    expect(normalizedCommand).toContain('/runtime/codex-home')
+    // Spawn must go through PannamOS's own npx command for the official
     // codex-acp package, not a bare `codex` binary.
     expect(command).toContain('npx -y @zed-industries/codex-acp')
   })
@@ -965,11 +1094,11 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
     'runs Claude and Codex ACP adapter packages through bundled Bun on macOS',
     async () => {
       const browserosDir = await mkdtemp(
-        join(tmpdir(), 'browseros-acpx-browseros-'),
+        join(tmpdir(), 'pannamos-acpx-pannamos-'),
       )
-      const stateDir = await mkdtemp(join(tmpdir(), 'browseros-acpx-state-'))
+      const stateDir = await mkdtemp(join(tmpdir(), 'pannamos-acpx-state-'))
       const resourcesDir = await mkdtemp(
-        join(tmpdir(), 'browseros-acpx-resources-'),
+        join(tmpdir(), 'pannamos-acpx-resources-'),
       )
       tempDirs.push(browserosDir, stateDir, resourcesDir)
       const bunPath = await writeFakeBundledBun(resourcesDir)
@@ -1013,17 +1142,17 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
 
   it('resolves the Hermes adapter to a container `nerdctl exec hermes acp` command when a HermesContainerRuntime is registered', async () => {
     const browserosDir = await mkdtemp(
-      join(tmpdir(), 'browseros-acpx-browseros-'),
+      join(tmpdir(), 'pannamos-acpx-pannamos-'),
     )
-    const stateDir = await mkdtemp(join(tmpdir(), 'browseros-acpx-state-'))
+    const stateDir = await mkdtemp(join(tmpdir(), 'pannamos-acpx-state-'))
     tempDirs.push(browserosDir, stateDir)
     const fakeManagedDeps: ManagedContainerDeps = {
       cli: {} as ManagedContainerDeps['cli'],
       loader: {} as ManagedContainerDeps['loader'],
       vm: {} as ManagedContainerDeps['vm'],
       limactlPath: '/opt/homebrew/bin/limactl',
-      limaHome: '/Users/dev/.browseros-dev/lima',
-      vmName: 'browseros-vm',
+      limaHome: '/Users/dev/.pannamos-dev/lima',
+      vmName: 'pannamos-vm',
       lockDir: stateDir,
     }
     const hermesRuntime = new HermesContainerRuntime(fakeManagedDeps, {
@@ -1056,9 +1185,9 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
       getCreateRuntimeOptions(calls).agentRegistry.resolve('hermes')
     // Container-spawn path uses limactl shell + nerdctl exec; no host-
     // process bash/tee workaround (those were Phase A only).
-    expect(command).toContain('env LIMA_HOME=/Users/dev/.browseros-dev/lima')
+    expect(command).toContain('env LIMA_HOME=/Users/dev/.pannamos-dev/lima')
     expect(command).toContain(
-      '/opt/homebrew/bin/limactl shell --workdir / browseros-vm --',
+      '/opt/homebrew/bin/limactl shell --workdir / pannamos-vm --',
     )
     expect(command).toContain('nerdctl exec -i')
     expect(command).toContain('hermes acp')
@@ -1072,9 +1201,9 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
 
   it('falls back to a host-process `hermes acp` command when no HermesGatewayAccessor is wired', async () => {
     const browserosDir = await mkdtemp(
-      join(tmpdir(), 'browseros-acpx-browseros-'),
+      join(tmpdir(), 'pannamos-acpx-pannamos-'),
     )
-    const stateDir = await mkdtemp(join(tmpdir(), 'browseros-acpx-state-'))
+    const stateDir = await mkdtemp(join(tmpdir(), 'pannamos-acpx-state-'))
     tempDirs.push(browserosDir, stateDir)
     const calls: Array<{ method: string; input: unknown }> = []
     const runtime = new AcpxRuntime({
@@ -1113,9 +1242,9 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
 
   it('does not reuse an Acpx runtime across different command identities', async () => {
     const browserosDir = await mkdtemp(
-      join(tmpdir(), 'browseros-acpx-browseros-'),
+      join(tmpdir(), 'pannamos-acpx-pannamos-'),
     )
-    const stateDir = await mkdtemp(join(tmpdir(), 'browseros-acpx-state-'))
+    const stateDir = await mkdtemp(join(tmpdir(), 'pannamos-acpx-state-'))
     tempDirs.push(browserosDir, stateDir)
     const calls: Array<{ method: string; input: unknown }> = []
     const runtime = new AcpxRuntime({
@@ -1156,8 +1285,8 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
   it('sets Claude approve-all sessions to bypass permissions before starting a turn', async () => {
     const calls: Array<{ method: string; input: unknown }> = []
     const runtime = new AcpxRuntime({
-      cwd: '/tmp/browseros-acpx-runtime',
-      stateDir: '/tmp/browseros-acpx-state',
+      cwd: '/tmp/pannamos-acpx-runtime',
+      stateDir: '/tmp/pannamos-acpx-state',
       runtimeFactory: () => createFakeAcpRuntime(calls),
     })
     const agent: AgentDefinition = {
@@ -1193,8 +1322,8 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
   it('continues Claude approve-all turns when mode control is unavailable', async () => {
     const calls: Array<{ method: string; input: unknown }> = []
     const runtime = new AcpxRuntime({
-      cwd: '/tmp/browseros-acpx-runtime',
-      stateDir: '/tmp/browseros-acpx-state',
+      cwd: '/tmp/pannamos-acpx-runtime',
+      stateDir: '/tmp/pannamos-acpx-state',
       runtimeFactory: () =>
         createFakeAcpRuntime(calls, { omitModeControl: true }),
     })
@@ -1251,8 +1380,8 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
   it('reuses cached runtime instances across per-turn timeouts', async () => {
     const calls: Array<{ method: string; input: unknown }> = []
     const runtime = new AcpxRuntime({
-      cwd: '/tmp/browseros-acpx-runtime',
-      stateDir: '/tmp/browseros-acpx-state',
+      cwd: '/tmp/pannamos-acpx-runtime',
+      stateDir: '/tmp/pannamos-acpx-state',
       runtimeFactory: (options) => {
         calls.push({ method: 'createRuntime', input: options })
         return createFakeAcpRuntime(calls)

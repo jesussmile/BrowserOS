@@ -35,7 +35,7 @@ function getTaskStatusIcon(status: ExecutionTaskRecord['status']) {
   }
 
   if (status === 'stopped') {
-    return <CircleSlash2 className="h-4 w-4 text-orange-500" />
+    return <CircleSlash2 className="h-4 w-4 text-muted-foreground" />
   }
 
   return <XCircle className="h-4 w-4 text-destructive" />

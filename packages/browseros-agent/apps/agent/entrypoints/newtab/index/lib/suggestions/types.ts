@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
+import type { ChatMode } from '@/entrypoints/sidepanel/index/chatTypes'
 
 /**
  * @public
@@ -37,7 +38,7 @@ export interface AITabSuggestionItem extends BaseSuggestionItem {
  */
 export interface BrowserOSSuggestionItem extends BaseSuggestionItem {
   type: 'browseros'
-  mode: 'chat' | 'agent'
+  mode: ChatMode
   message: string
 }
 

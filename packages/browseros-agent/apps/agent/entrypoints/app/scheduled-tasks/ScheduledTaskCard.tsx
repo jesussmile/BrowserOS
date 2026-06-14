@@ -20,10 +20,14 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { Switch } from '@/components/ui/switch'
-import { BrowserOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
+import { PannamOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import { providersStorage } from '@/lib/llm-providers/storage'
 import type { ProviderType } from '@/lib/llm-providers/types'
 import { useScheduledJobRuns } from '@/lib/schedules/scheduleStorage'
+import {
+  CHAT_MODE_DETAILS,
+  normalizeChatMode,
+} from '../../sidepanel/index/chatTypes'
 import type { ScheduledJob, ScheduledJobRun } from './types'
 
 dayjs.extend(relativeTime)
@@ -89,6 +93,7 @@ export const ScheduledTaskCard: FC<ScheduledTaskCardProps> = ({
   } | null>(null)
 
   const { jobRuns } = useScheduledJobRuns()
+  const modeDetails = CHAT_MODE_DETAILS[normalizeChatMode(job.mode)]
 
   // Load provider info for display
   useEffect(() => {
@@ -136,12 +141,14 @@ export const ScheduledTaskCard: FC<ScheduledTaskCardProps> = ({
           </p>
           <div className="flex items-center gap-2 text-muted-foreground text-xs">
             <span>{formatSchedule(job)}</span>
+            <span>•</span>
+            <span>{modeDetails.label}</span>
             {providerInfo && (
               <>
                 <span>•</span>
                 <span className="flex items-center gap-1">
                   {providerInfo.type === 'browseros' ? (
-                    <BrowserOSIcon size={12} />
+                    <PannamOSIcon size={12} />
                   ) : (
                     <ProviderIcon type={providerInfo.type} size={12} />
                   )}

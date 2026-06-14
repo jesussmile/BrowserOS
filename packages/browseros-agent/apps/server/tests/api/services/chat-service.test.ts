@@ -44,6 +44,22 @@ const createAgentUIStreamResponseSpy = mock(
     return await streamResponseHandler(options)
   },
 )
+const createUIMessageStreamSpy = mock(
+  ({ execute }: { execute: (options: { writer: unknown }) => void }) => {
+    execute({ writer: {} })
+    return new ReadableStream({
+      start(controller) {
+        controller.close()
+      },
+    })
+  },
+)
+const createUIMessageStreamResponseSpy = mock(
+  ({ stream }: { stream: ReadableStream }) =>
+    new Response(stream, {
+      headers: { 'content-type': 'text/event-stream' },
+    }),
+)
 
 const resolveLLMConfigSpy = mock(async () => ({
   provider: 'openai',
@@ -53,6 +69,8 @@ const resolveLLMConfigSpy = mock(async () => ({
 
 mock.module('ai', () => ({
   createAgentUIStreamResponse: createAgentUIStreamResponseSpy,
+  createUIMessageStream: createUIMessageStreamSpy,
+  createUIMessageStreamResponse: createUIMessageStreamResponseSpy,
 }))
 
 mock.module('../../../src/agent/ai-sdk-agent', () => ({
@@ -117,6 +135,65 @@ function createFakeAgent() {
   }
 }
 
+describe('ChatService local mode routing', () => {
+  it('passes every PannamOS mode into the agent runtime config', async () => {
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      await onFinish({ messages: uiMessages ?? [] })
+      return new Response('ok')
+    }
+
+    const browser = {
+      resolveTabIds: mock(
+        async (tabIds: number[]) =>
+          new Map(tabIds.map((tabId) => [tabId, tabId + 100])),
+      ),
+      closePage: mock(async () => {}),
+    }
+    const sessionStore = createSessionStore()
+    const service = new ChatService({
+      sessionStore: sessionStore as never,
+      klavisRef: { handle: null },
+      browser: browser as never,
+      registry: {} as never,
+    })
+    const modes = ['chat', 'research', 'workflow', 'agent', 'goal'] as const
+    const createCallsBefore = createAgentSpy.mock.calls.length
+
+    for (const mode of modes) {
+      agentToReturn = createFakeAgent()
+      await service.processMessage(
+        {
+          conversationId: crypto.randomUUID(),
+          message: `Run ${mode} mode`,
+          isScheduledTask: false,
+          mode,
+          origin: 'sidepanel',
+          browserContext: {
+            activeTab: {
+              id: 3,
+              url: 'https://example.com',
+              title: 'Example',
+            },
+          },
+        } as never,
+        new AbortController().signal,
+      )
+    }
+
+    const createArgs = createAgentSpy.mock.calls
+      .slice(createCallsBefore)
+      .map((call) => call[0] as { resolvedConfig: unknown })
+    expect(createArgs).toHaveLength(modes.length)
+
+    for (const [index, mode] of modes.entries()) {
+      expect(createArgs[index]?.resolvedConfig).toMatchObject({
+        mode,
+        chatMode: mode === 'chat',
+      })
+    }
+  })
+})
+
 describe('ChatService scheduled task hidden page lifecycle', () => {
   it('creates and cleans up a hidden page without creating a hidden window', async () => {
     const fakeAgent = createFakeAgent()
@@ -152,7 +229,7 @@ describe('ChatService scheduled task hidden page lifecycle', () => {
         conversationId: crypto.randomUUID(),
         message: 'Run the scheduled task',
         isScheduledTask: true,
-        mode: 'agent',
+        mode: 'goal',
         origin: 'sidepanel',
         browserContext: {
           windowId: 9,
@@ -227,6 +304,50 @@ describe('ChatService scheduled task hidden page lifecycle', () => {
     expect(fakeAgent.dispose).toHaveBeenCalledTimes(1)
   })
 
+  it('treats stale empty approval continuations as a no-op stream', async () => {
+    const fakeAgent = createFakeAgent()
+    const sessionStore = createSessionStore()
+    const conversationId = crypto.randomUUID()
+    sessionStore.set(conversationId, { agent: fakeAgent })
+
+    const service = new ChatService({
+      sessionStore: sessionStore as never,
+      klavisRef: { handle: null },
+      browser: {} as never,
+      registry: {} as never,
+    })
+    const agentStreamCallsBefore =
+      createAgentUIStreamResponseSpy.mock.calls.length
+    const noopStreamCallsBefore =
+      createUIMessageStreamResponseSpy.mock.calls.length
+
+    const response = await service.processMessage(
+      {
+        conversationId,
+        message: '',
+        approvalResponses: [
+          {
+            id: 'stale-approval',
+            approved: true,
+          },
+        ],
+        isScheduledTask: false,
+        mode: 'goal',
+        origin: 'sidepanel',
+        browserContext: {},
+      } as never,
+      new AbortController().signal,
+    )
+
+    expect(response.status).toBe(200)
+    expect(createAgentUIStreamResponseSpy.mock.calls.length).toBe(
+      agentStreamCallsBefore,
+    )
+    expect(createUIMessageStreamResponseSpy.mock.calls.length).toBe(
+      noopStreamCallsBefore + 1,
+    )
+  })
+
   it('keeps the scheduled hidden page context when metadata lookup fails', async () => {
     const fakeAgent = createFakeAgent()
     agentToReturn = fakeAgent
@@ -256,7 +377,7 @@ describe('ChatService scheduled task hidden page lifecycle', () => {
         conversationId: crypto.randomUUID(),
         message: 'Run the scheduled task',
         isScheduledTask: true,
-        mode: 'agent',
+        mode: 'goal',
         origin: 'sidepanel',
         browserContext: {
           activeTab: {
@@ -291,7 +412,7 @@ describe('ChatService scheduled task hidden page lifecycle', () => {
   })
 })
 
-describe('ChatService Klavis session rebuilds', () => {
+describe('ChatService managed app session rebuilds', () => {
   it('rebuilds a managed-app session when the shared Klavis handle appears', async () => {
     const firstAgent = createFakeAgent()
     const secondAgent = createFakeAgent()
@@ -324,7 +445,7 @@ describe('ChatService Klavis session rebuilds', () => {
       conversationId,
       message: 'check integrations',
       isScheduledTask: false,
-      mode: 'agent',
+      mode: 'goal',
       origin: 'sidepanel',
       browserContext: {
         activeTab: {
@@ -362,7 +483,7 @@ describe('ChatService Klavis session rebuilds', () => {
     const promptRebuiltMessage =
       lastPromptUiMessages?.at(-1)?.parts[0]?.text ?? ''
     expect(promptRebuiltMessage).toContain(
-      'Klavis app integration tools are now available for the following connected apps: slack.',
+      'The following app integrations were connected: slack.',
     )
     expect(promptRebuiltMessage).not.toContain('klavis:pending')
     expect(promptRebuiltMessage).not.toContain('klavis:connected')
@@ -398,7 +519,7 @@ describe('ChatService Klavis session rebuilds', () => {
       conversationId,
       message: 'check browser only',
       isScheduledTask: false,
-      mode: 'agent',
+      mode: 'goal',
       origin: 'sidepanel',
       browserContext: {
         activeTab: {

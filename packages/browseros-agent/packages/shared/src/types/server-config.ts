@@ -3,7 +3,7 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * Shape of ~/.browseros/server.json written by the server on startup.
+ * Shape of ~/.pannamos/server.json written by the server on startup.
  * The CLI reads this file for auto-discovery of the server URL.
  */
 

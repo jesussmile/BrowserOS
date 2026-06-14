@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { dirname, extname, relative, resolve } from 'node:path'
 
 const projectRoot = resolve(import.meta.dir, '..', '..')
 const testsRoot = resolve(projectRoot, 'tests')
@@ -39,6 +39,30 @@ function listRootTestTargets(): string[] {
     .filter((entry) => !rootGroupExclusions.has(entry.name))
     .map((entry) => `./tests/${entry.name}`)
     .sort((left, right) => left.localeCompare(right))
+}
+
+function listTestFilesUnder(target: string): string[] {
+  const absoluteTarget = resolve(projectRoot, target)
+  if (!existsSync(absoluteTarget) || !statSync(absoluteTarget).isDirectory()) {
+    return [target]
+  }
+
+  function walk(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true })
+      .flatMap((entry) => {
+        const path = resolve(dir, entry.name)
+        if (entry.isDirectory()) {
+          return ignoredDirectories.has(entry.name) ? [] : walk(path)
+        }
+        if (!entry.isFile() || !testFilePattern.test(entry.name)) {
+          return []
+        }
+        return [`./${relative(projectRoot, path).replaceAll('\\', '/')}`]
+      })
+      .sort((left, right) => left.localeCompare(right))
+  }
+
+  return walk(absoluteTarget)
 }
 
 export function listAllGroups(): string[] {
@@ -106,6 +130,14 @@ function runCommand(cmd: string[], label: string): number {
   return result.status ?? 1
 }
 
+function junitPathForTarget(junitPath: string | undefined, target: string) {
+  if (!junitPath) return undefined
+  const extension = extname(junitPath)
+  const base = extension ? junitPath.slice(0, -extension.length) : junitPath
+  const suffix = target.replaceAll(/[\\/.:]/g, '-').replace(/^-+/, '')
+  return `${base}-${suffix}${extension || '.xml'}`
+}
+
 export function withTestEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   if (env.NODE_ENV) return env
   return { ...env, NODE_ENV: 'test' }
@@ -144,8 +176,25 @@ function runAtomicGroup(group: string): number {
     )
   }
   const junitPath = process.env.BROWSEROS_JUNIT_PATH?.trim()
-  const cmd = buildTestCommand(targets, junitPath)
-  return runCommand(cmd, `Running ${group} tests`)
+  if (process.platform === 'win32') {
+    let exitCode = 0
+    const expandedTargets = targets.flatMap(listTestFilesUnder)
+    for (const target of expandedTargets) {
+      const cmd = buildTestCommand(
+        [target],
+        junitPathForTarget(junitPath, target),
+      )
+      const status = runCommand(cmd, `Running ${group} test ${target}`)
+      if (status !== 0 && exitCode === 0) {
+        exitCode = status
+      }
+    }
+    return exitCode
+  }
+  return runCommand(
+    buildTestCommand(targets, junitPath),
+    `Running ${group} tests`,
+  )
 }
 
 function runGroup(group: string): number {

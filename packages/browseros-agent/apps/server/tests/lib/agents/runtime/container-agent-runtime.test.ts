@@ -81,7 +81,7 @@ function makeDeps(): ManagedContainerDeps {
     vm: {} as ManagedContainerDeps['vm'],
     limactlPath: '/opt/homebrew/bin/limactl',
     limaHome: '/tmp/lima',
-    vmName: 'browseros-vm',
+    vmName: 'pannamos-vm',
     lockDir: '/tmp/locks',
   }
 }

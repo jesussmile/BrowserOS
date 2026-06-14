@@ -88,29 +88,27 @@ export const App: FC = () => {
             element={<NewTabLayout useChatSessionOnHome={!alphaEnabled} />}
           >
             {alphaEnabled ? (
-              <>
-                <Route element={<AgentCommandLayout />}>
-                  <Route index element={<AgentCommandHome />} />
-                  <Route
-                    path="agents/:agentId"
-                    element={<AgentCommandConversation />}
-                  />
-                </Route>
-                <Route path="chat" element={<NewTabChat />} />
+              <Route element={<AgentCommandLayout />}>
+                <Route index element={<AgentCommandHome />} />
                 <Route
-                  path="chat/history"
-                  element={
-                    <ChatHistory
-                      conversationPath="/home/chat"
-                      newConversationPath="/home/chat"
-                    />
-                  }
+                  path="agents/:agentId"
+                  element={<AgentCommandConversation />}
                 />
-                <Route path="personalize" element={<Personalize />} />
-              </>
+              </Route>
             ) : (
               <Route index element={<NewTab />} />
             )}
+            <Route path="chat" element={<NewTabChat />} />
+            <Route
+              path="chat/history"
+              element={
+                <ChatHistory
+                  conversationPath="/home/chat"
+                  newConversationPath="/home/chat"
+                />
+              }
+            />
+            <Route path="personalize" element={<Personalize />} />
           </Route>
 
           {/* Primary nav routes */}

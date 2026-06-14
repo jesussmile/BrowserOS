@@ -1,4 +1,4 @@
-const CHANGELOG_BASE_URL = 'https://docs.browseros.com/changelog'
+const CHANGELOG_BASE_URL = 'app.html#/onboarding/features'
 
 type ChangelogVersionConfig = {
   showChangelog: true
@@ -15,8 +15,7 @@ type ChangelogVersionConfig = {
  * '0.0.25': { showChangelog: true, anchor: 'v0-0-25' }  // opens changelog#v0-0-25
  */
 export const CHANGELOG_VERSIONS: Record<string, ChangelogVersionConfig> = {
-  '0.0.52': { showChangelog: true },
-  '0.0.55': { showChangelog: true, anchor: 'v0-37-0' },
+  // Private builds do not open upstream BrowserOS changelog pages.
 }
 
 export function getChangelogUrl(version: string): string {

@@ -34,7 +34,7 @@ export const useRemoveManagedServer = () => {
   const { baseUrl: agentServerUrl } = useAgentServerUrl()
 
   return useSWRMutation(
-    agentServerUrl ? `${agentServerUrl}/klavis/servers/remove` : null,
+    agentServerUrl ? `${agentServerUrl}/local/apps/remove` : null,
     removeManagedServer,
   )
 }

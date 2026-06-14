@@ -49,7 +49,7 @@ describe('ClaudeRuntime', () => {
   it('declares the canonical Claude descriptor', () => {
     const runtime = new ClaudeRuntime(
       { binaryName: 'claude' },
-      { browserosDir: '/tmp/browseros' },
+      { browserosDir: '/tmp/pannamos' },
     )
     expect(runtime.descriptor.adapterId).toBe('claude')
     expect(runtime.descriptor.kind).toBe('host-process')
@@ -60,10 +60,10 @@ describe('ClaudeRuntime', () => {
   it('getPerAgentHomeDir resolves the canonical agent home path', () => {
     const runtime = new ClaudeRuntime(
       { binaryName: 'claude' },
-      { browserosDir: '/tmp/browseros' },
+      { browserosDir: '/tmp/pannamos' },
     )
     expect(runtime.getPerAgentHomeDir('agent-7')).toBe(
-      '/tmp/browseros/agents/harness/agent-7/home',
+      join('/tmp/pannamos', 'agents', 'harness', 'agent-7', 'home'),
     )
   })
 
@@ -94,7 +94,7 @@ describe('ClaudeRuntime', () => {
 
   describe('configureClaudeRuntime', () => {
     it('registers a runtime in the registry', () => {
-      const browserosDir = '/tmp/browseros'
+      const browserosDir = '/tmp/pannamos'
       const runtime = configureClaudeRuntime({ browserosDir })
       expect(runtime).toBeInstanceOf(ClaudeRuntime)
       expect(getClaudeRuntime()).toBe(runtime)
@@ -102,9 +102,9 @@ describe('ClaudeRuntime', () => {
     })
 
     it('throws on duplicate registration', () => {
-      configureClaudeRuntime({ browserosDir: '/tmp/browseros' })
+      configureClaudeRuntime({ browserosDir: '/tmp/pannamos' })
       expect(() =>
-        configureClaudeRuntime({ browserosDir: '/tmp/browseros' }),
+        configureClaudeRuntime({ browserosDir: '/tmp/pannamos' }),
       ).toThrow(/already registered/)
     })
   })

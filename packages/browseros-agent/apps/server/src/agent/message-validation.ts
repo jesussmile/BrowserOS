@@ -45,6 +45,59 @@ export function filterValidMessages(messages: UIMessage[]): UIMessage[] {
   return messages.filter(hasMessageContent)
 }
 
+function isToolPart(part: UIMessage['parts'][number]): boolean {
+  return (
+    part.type === 'dynamic-tool' ||
+    (typeof part.type === 'string' && part.type.startsWith('tool-'))
+  )
+}
+
+function isCompletedToolPart(part: UIMessage['parts'][number]): boolean {
+  const state = (part as { state?: unknown }).state
+  return (
+    state === 'output-available' ||
+    state === 'output-error' ||
+    state === 'output-denied'
+  )
+}
+
+/**
+ * Remove interrupted tool calls before sending a normal follow-up message.
+ *
+ * If a browser restart or cancelled turn leaves a tool part in
+ * `input-available` / `approval-requested`, the next user message would make
+ * the AI SDK reject the whole prompt with `AI_MissingToolResultsError`. Current
+ * approval responses can still be preserved for the approval continuation path.
+ */
+export function sanitizeIncompleteToolCalls(
+  messages: UIMessage[],
+  options: { preserveApprovalResponded?: boolean } = {},
+): UIMessage[] {
+  return messages
+    .map((message) => {
+      let changed = false
+      const filteredParts = message.parts.filter((part) => {
+        if (!isToolPart(part)) return true
+        if (isCompletedToolPart(part)) return true
+
+        const state = (part as { state?: unknown }).state
+        if (
+          options.preserveApprovalResponded &&
+          state === 'approval-responded'
+        ) {
+          return true
+        }
+
+        changed = true
+        return false
+      })
+
+      if (!changed) return message
+      return { ...message, parts: filteredParts }
+    })
+    .filter(hasMessageContent)
+}
+
 /**
  * Remove tool parts that reference tools not present in the given toolset.
  *

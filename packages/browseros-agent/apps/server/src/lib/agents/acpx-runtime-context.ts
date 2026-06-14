@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto'
 import { constants, type Stats } from 'node:fs'
 import {
   access,
+  cp,
   mkdir,
   readFile,
   rename,
@@ -24,6 +25,10 @@ import {
   SOUL_TEMPLATE,
 } from './acpx-runtime-templates'
 import type { AgentDefinition } from './agent-types'
+import {
+  discoverRepoRuntimeSkills,
+  materializeRepoRuntimeSkill,
+} from './repo-runtime-skills'
 
 export const BROWSEROS_ACPX_OPERATING_PROMPT_VERSION = '2026-05-02.v1'
 
@@ -71,16 +76,28 @@ export async function ensureAgentHome(paths: AgentRuntimePaths): Promise<void> {
   await writeFileIfMissing(join(paths.agentHome, 'MEMORY.md'), MEMORY_TEMPLATE)
 }
 
-/** Writes built-in BrowserOS runtime skills and returns their stable names. */
+/** Writes built-in PannamOS runtime skills and returns their stable names. */
 export async function ensureRuntimeSkills(
   skillRoot: string,
+  options: { repoRoot?: string; repoSkillRoots?: string[] } = {},
 ): Promise<string[]> {
   const names = Object.keys(RUNTIME_SKILLS).sort()
   for (const name of names) {
     const skillPath = join(skillRoot, name, 'SKILL.md')
     await writeFileAtomic(skillPath, RUNTIME_SKILLS[name])
   }
-  return names
+  const repoSkills = await discoverRepoRuntimeSkills({
+    repoRoot: options.repoRoot,
+    skillRoots: options.repoSkillRoots,
+  })
+  const existingNames = new Set(names)
+  for (const skill of repoSkills) {
+    if (existingNames.has(skill.id)) continue
+    await materializeRepoRuntimeSkill(skill, skillRoot)
+    existingNames.add(skill.id)
+    names.push(skill.id)
+  }
+  return names.sort()
 }
 
 /** Prepares the Codex home that the ACP adapter will see through CODEX_HOME. */
@@ -102,25 +119,21 @@ export async function materializeCodexHome(input: {
     await copyIfPresent(join(source, file), join(input.paths.codexHome, file))
   }
   for (const name of input.skillNames) {
-    const target = join(input.paths.codexHome, 'skills', name, 'SKILL.md')
-    await writeFileAtomic(
-      target,
-      await readFile(
-        join(input.paths.runtimeSkillsDir, name, 'SKILL.md'),
-        'utf8',
-      ),
+    await copySkillDirectory(
+      join(input.paths.runtimeSkillsDir, name),
+      join(input.paths.codexHome, 'skills', name),
     )
   }
 }
 
-/** Builds stable BrowserOS-managed instructions for Claude/Codex ACP turns. */
+/** Builds stable PannamOS-managed instructions for Claude/Codex ACP turns. */
 export function buildAcpxRuntimePromptPrefix(input: {
   agent: AgentDefinition
   paths: AgentRuntimePaths
   skillNames: string[]
 }): string {
   return `<browseros_acpx_runtime version="${BROWSEROS_ACPX_OPERATING_PROMPT_VERSION}">
-You are BrowserOS, an ACPX browser agent.
+You are PannamOS, an ACPX browser agent.
 
 Agent: ${input.agent.name} (${input.agent.adapter})
 AGENT_HOME=${input.paths.agentHome}
@@ -133,16 +146,16 @@ SOUL.md stores identity, behavior, style, rules, and boundaries.
 MEMORY.md stores durable, promoted memory.
 memory/YYYY-MM-DD.md stores daily notes, task breadcrumbs, and candidate memories.
 
-BrowserOS has made runtime skills available for this ACPX session.
+PannamOS has made runtime skills available for this ACPX session.
 Skill root: ${input.paths.runtimeSkillsDir}
 Available skills: ${input.skillNames.join(', ')}
 When a task calls for one of these skills, read its SKILL.md from that root and follow it.
 
-When the user asks you to remember, save feedback, store a preference, or update memory in this BrowserOS ACPX context, use the BrowserOS memory skill.
-Write BrowserOS memory only under AGENT_HOME:
+When the user asks you to remember, save feedback, store a preference, or update memory in this PannamOS ACPX context, use the PannamOS memory skill.
+Write PannamOS memory only under AGENT_HOME:
 - AGENT_HOME/MEMORY.md for durable promoted preferences and operating patterns.
 - AGENT_HOME/memory/YYYY-MM-DD.md for daily notes and candidate memories.
-Do not use native Claude project memory, native CLI memory, or workspace files for BrowserOS memory.
+Do not use native Claude project memory, native CLI memory, or workspace files for PannamOS memory.
 </browseros_acpx_runtime>`
 }
 
@@ -222,6 +235,18 @@ async function copyIfPresent(source: string, target: string): Promise<void> {
   } catch (err) {
     if (!isAlreadyExistsError(err)) throw err
   }
+}
+
+async function copySkillDirectory(
+  source: string,
+  target: string,
+): Promise<void> {
+  await rm(target, { recursive: true, force: true })
+  await cp(source, target, {
+    recursive: true,
+    force: true,
+    errorOnExist: false,
+  })
 }
 
 /** Writes generated content via atomic replace so readers never see partial files. */

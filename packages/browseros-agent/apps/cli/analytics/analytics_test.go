@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -24,7 +26,7 @@ func TestGenerateUUID(t *testing.T) {
 
 func TestLoadBrowserosID(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
+	setTestHome(t, tmp)
 
 	// No server.json → empty
 	if got := loadBrowserosID(); got != "" {
@@ -83,7 +85,7 @@ func TestLoadOrCreateInstallID(t *testing.T) {
 
 func TestResolveDistinctID_PrefersBrowserosID(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
+	setTestHome(t, tmp)
 	t.Setenv("XDG_CONFIG_HOME", tmp)
 
 	// Write server.json with browseros_id
@@ -100,7 +102,7 @@ func TestResolveDistinctID_PrefersBrowserosID(t *testing.T) {
 
 func TestResolveDistinctID_FallsBackToInstallID(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
+	setTestHome(t, tmp)
 	t.Setenv("XDG_CONFIG_HOME", tmp)
 
 	// No server.json → should generate install_id
@@ -129,4 +131,14 @@ func TestTrackAndCloseNoopWithoutInit(t *testing.T) {
 	// Should not panic
 	Track("test", true, time.Second)
 	Close()
+}
+
+func setTestHome(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("HOME", dir)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", dir)
+		t.Setenv("HOMEDRIVE", filepath.VolumeName(dir))
+		t.Setenv("HOMEPATH", strings.TrimPrefix(dir, filepath.VolumeName(dir)))
+	}
 }

@@ -156,7 +156,7 @@ describe('HTTP Server Integration Tests', () => {
 
   describe('Chat endpoint', () => {
     it(
-      'streams a mocked chat response for BrowserOS provider requests in test mode',
+      'streams a mocked chat response for PannamOS provider requests in test mode',
       async () => {
         const conversationId = crypto.randomUUID()
 
@@ -209,7 +209,7 @@ describe('HTTP Server Integration Tests', () => {
         )
         assert.ok(
           fullResponse.includes(MOCK_BROWSEROS_RESPONSE_TEXT),
-          'Should include the mocked BrowserOS chat response',
+          'Should include the mocked PannamOS chat response',
         )
 
         const deleteResponse = await fetch(

@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -32,14 +34,14 @@ func TestDefaults(t *testing.T) {
 	if cfg.Ports.CDP != 9015 || cfg.Ports.Server != 9115 || cfg.Ports.Extension != 9315 {
 		t.Fatalf("unexpected ports: %+v", cfg.Ports)
 	}
-	if cfg.ProductionEnv.Server["BROWSEROS_CONFIG_URL"] == "" {
-		t.Fatalf("missing server production env defaults: %#v", cfg.ProductionEnv.Server)
+	if cfg.ProductionEnv.Server["BROWSEROS_CONFIG_URL"] != "" {
+		t.Fatalf("server config URL should default blank for private builds: %#v", cfg.ProductionEnv.Server)
 	}
 	if cfg.ProductionEnv.Server["LOG_LEVEL"] != "debug" {
 		t.Fatalf("server log level got %q want debug", cfg.ProductionEnv.Server["LOG_LEVEL"])
 	}
-	if cfg.ProductionEnv.CLI["R2_BUCKET"] != "browseros" {
-		t.Fatalf("missing cli production env defaults: %#v", cfg.ProductionEnv.CLI)
+	if cfg.ProductionEnv.CLI["R2_BUCKET"] != "" {
+		t.Fatalf("cli R2 bucket should default blank for private builds: %#v", cfg.ProductionEnv.CLI)
 	}
 	if cfg.ProductionEnv.CLI["R2_UPLOAD_PREFIX"] != "" {
 		t.Fatalf("cli upload prefix got %q want empty", cfg.ProductionEnv.CLI["R2_UPLOAD_PREFIX"])
@@ -69,7 +71,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 		Ports:             Ports{CDP: 9015, Server: 9115, Extension: 9315},
 		ProductionEnv: ProductionEnv{
 			Server: map[string]string{"NODE_ENV": "production"},
-			CLI:    map[string]string{"R2_BUCKET": "browseros"},
+			CLI:    map[string]string{"R2_BUCKET": "private-browseros"},
 		},
 	}
 
@@ -89,7 +91,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	if got.BrowserOSDir != cfg.BrowserOSDir {
 		t.Fatalf("BrowserOS dir mismatch: %q", got.BrowserOSDir)
 	}
-	if got.ProductionEnv.CLI["R2_BUCKET"] != "browseros" {
+	if got.ProductionEnv.CLI["R2_BUCKET"] != "private-browseros" {
 		t.Fatalf("production env mismatch: %#v", got.ProductionEnv)
 	}
 }
@@ -134,7 +136,7 @@ func TestConfigPathHonorsXDG(t *testing.T) {
 func TestPathDefault(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", "")
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setTestHome(t, home)
 	got, err := Path()
 	if err != nil {
 		t.Fatal(err)
@@ -154,9 +156,10 @@ func TestValidateRepoShape(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(agentRoot, "package.json"), []byte(`{"name":"browseros-monorepo"}`), 0644); err != nil {
 		t.Fatal(err)
 	}
+	appPath := writeTestExecutable(t)
 	cfg := Config{
 		RepoPath:          repo,
-		BrowserOSAppPath:  "/bin/sh",
+		BrowserOSAppPath:  appPath,
 		SourceUserDataDir: "/tmp/source",
 		SourceProfileDir:  "Default",
 		DevUserDataDir:    "/tmp/dev",
@@ -171,7 +174,7 @@ func TestValidateRepoShape(t *testing.T) {
 
 func TestResolveExpandsBrowserOSDir(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setTestHome(t, home)
 	cfg := Config{BrowserOSDir: "~/.browseros-dogfood"}
 
 	cfg.Resolve()
@@ -179,6 +182,29 @@ func TestResolveExpandsBrowserOSDir(t *testing.T) {
 	want := filepath.Join(home, ".browseros-dogfood")
 	if cfg.BrowserOSDir != want {
 		t.Fatalf("expanded BrowserOS dir got %q want %q", cfg.BrowserOSDir, want)
+	}
+}
+
+func writeTestExecutable(t *testing.T) string {
+	t.Helper()
+	name := "browseros-test"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	path := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(path, []byte("test"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func setTestHome(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("HOME", dir)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", dir)
+		t.Setenv("HOMEDRIVE", filepath.VolumeName(dir))
+		t.Setenv("HOMEPATH", strings.TrimPrefix(dir, filepath.VolumeName(dir)))
 	}
 }
 

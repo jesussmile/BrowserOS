@@ -1,13 +1,25 @@
-import { ChevronDown, Folder, Layers, PlugZap } from 'lucide-react'
+import {
+  ChevronDown,
+  Folder,
+  Layers,
+  Pause,
+  Play,
+  PlugZap,
+  ShieldCheck,
+  X,
+} from 'lucide-react'
 import type { FC, FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { AppSelector } from '@/components/elements/AppSelector'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
 import { McpServerIcon } from '@/entrypoints/app/connect-mcp/McpServerIcon'
 import { useGetUserMCPIntegrations } from '@/entrypoints/app/connect-mcp/useGetUserMCPIntegrations'
+import type { StagedAttachment } from '@/lib/attachments'
 import { Feature } from '@/lib/browseros/capabilities'
 import { useCapabilities } from '@/lib/browseros/useCapabilities'
-import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import type { GoalLoopProgress } from '@/lib/goals/goalLoopClient'
+import { isLiveMcpServer, useMcpServers } from '@/lib/mcp/mcpServerStorage'
+import type { ChatAgentStrategy } from '@/lib/messaging/server/buildChatRequestBody'
 import {
   type SelectedTextData,
   selectedTextStorage,
@@ -20,6 +32,12 @@ import { ChatInput, type ChatInputHandle } from './ChatInput'
 import { ChatModeToggle } from './ChatModeToggle'
 import { ChatSelectedText } from './ChatSelectedText'
 import type { ChatMode } from './chatTypes'
+import { GOAL_AGENT_STRATEGY_OPTIONS } from './goalAgentStrategy'
+import {
+  getGoalLoopProgressChips,
+  getGoalLoopResumePrompt,
+  getGoalLoopResumePromptPreview,
+} from './goalLoopProgressDetails'
 
 interface ChatFooterProps {
   mode: ChatMode
@@ -33,6 +51,17 @@ interface ChatFooterProps {
   onToggleTab: (tab: chrome.tabs.Tab) => void
   onRemoveTab: (tabId?: number) => void
   voice?: VoiceInputState
+  attachments: StagedAttachment[]
+  onAttachmentsChange: (attachments: StagedAttachment[]) => void
+  attachmentsEnabled?: boolean
+  onCompactConversation?: () => void | Promise<void>
+  agentStrategyMode: ChatAgentStrategy['mode']
+  onAgentStrategyModeChange: (mode: ChatAgentStrategy['mode']) => void
+  goalLoopProgress?: GoalLoopProgress | null
+  activeGoalLoopId?: string | null
+  onPauseGoalLoop?: () => void | Promise<void>
+  onResumeGoalLoop?: () => void | Promise<void>
+  onCancelGoalLoop?: () => void | Promise<void>
 }
 
 export const ChatFooter: FC<ChatFooterProps> = ({
@@ -47,6 +76,17 @@ export const ChatFooter: FC<ChatFooterProps> = ({
   onToggleTab,
   onRemoveTab,
   voice,
+  attachments,
+  onAttachmentsChange,
+  attachmentsEnabled = true,
+  onCompactConversation,
+  agentStrategyMode,
+  onAgentStrategyModeChange,
+  goalLoopProgress,
+  activeGoalLoopId,
+  onPauseGoalLoop,
+  onResumeGoalLoop,
+  onCancelGoalLoop,
 }) => {
   const { selectedFolder } = useWorkspace()
   const { supports } = useCapabilities()
@@ -105,10 +145,26 @@ export const ChatFooter: FC<ChatFooterProps> = ({
 
   const connectedManagedServers = mcpServers.filter((s) => {
     if (s.type !== 'managed' || !s.managedServerName) return false
+    if (isLiveMcpServer(s)) return true
     return userMCPIntegrations?.integrations?.find(
       (i) => i.name === s.managedServerName,
     )?.is_authenticated
   })
+  const goalLoopLifecycle =
+    goalLoopProgress?.lifecycleStatus ??
+    (goalLoopProgress?.status === 'completed'
+      ? 'complete'
+      : goalLoopProgress?.status)
+  const goalLoopProgressChips = goalLoopProgress
+    ? getGoalLoopProgressChips(goalLoopProgress)
+    : []
+  const goalLoopResumePrompt = goalLoopProgress
+    ? getGoalLoopResumePrompt(goalLoopProgress)
+    : null
+  const goalLoopResumePromptPreview = goalLoopProgress
+    ? getGoalLoopResumePromptPreview(goalLoopProgress)
+    : null
+  const isFullAccessMode = mode === 'goal' || mode === 'agent'
 
   return (
     <footer className="border-border/40 border-t bg-background/80 backdrop-blur-md">
@@ -222,6 +278,141 @@ export const ChatFooter: FC<ChatFooterProps> = ({
           <div className="mt-1 text-destructive text-xs">{voice.error}</div>
         )}
 
+        {isFullAccessMode && (
+          <div className="mt-2 space-y-1.5">
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/25 bg-primary/10 px-2 py-1 text-primary text-xs">
+              <span className="flex min-w-0 items-center gap-1.5 font-medium">
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">Full Browser Access</span>
+              </span>
+              <span className="shrink-0 text-[10px] text-primary/80">
+                all commands auto-run
+              </span>
+            </div>
+            <div className="flex items-center gap-1 rounded-lg border border-border/40 bg-muted/30 p-1 text-xs">
+              {GOAL_AGENT_STRATEGY_OPTIONS.map((strategy) => (
+                <button
+                  key={strategy.mode}
+                  type="button"
+                  onClick={() => onAgentStrategyModeChange(strategy.mode)}
+                  className={cn(
+                    'flex-1 rounded-md px-1.5 py-1 font-medium text-[11px] leading-tight transition-colors',
+                    agentStrategyMode === strategy.mode
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-background hover:text-foreground',
+                  )}
+                  title={`${strategy.label} strategy`}
+                >
+                  {strategy.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {mode === 'goal' && goalLoopProgress && (
+          <div className="mt-2 rounded-lg border border-border/50 bg-muted/40 px-3 py-2 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium">
+                  <span className="capitalize">
+                    {goalLoopLifecycle?.replaceAll('_', ' ')}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {goalLoopProgress.queueCounts.completed} done
+                  </span>
+                  <span className="text-muted-foreground">
+                    {goalLoopProgress.queueCounts.pending} pending
+                  </span>
+                  {goalLoopProgress.queueCounts.failed > 0 && (
+                    <span className="text-destructive">
+                      {goalLoopProgress.queueCounts.failed} failed
+                    </span>
+                  )}
+                  {goalLoopProgress.queueCounts.blocked > 0 && (
+                    <span className="text-amber-600">
+                      {goalLoopProgress.queueCounts.blocked} blocked
+                    </span>
+                  )}
+                </div>
+                {goalLoopProgress.currentItem && (
+                  <div className="mt-1 truncate text-muted-foreground">
+                    {goalLoopProgress.currentItem.title}
+                    {goalLoopProgress.retryCount > 0 &&
+                      ` · retry ${goalLoopProgress.retryCount}`}
+                  </div>
+                )}
+                {goalLoopProgress.lastCheckpoint && (
+                  <div className="mt-1 truncate text-muted-foreground">
+                    {goalLoopProgress.lastCheckpoint.summary}
+                  </div>
+                )}
+                {goalLoopProgress.continuation?.packet?.nextAction && (
+                  <div className="mt-1 truncate text-muted-foreground">
+                    {goalLoopProgress.continuation.packet.nextAction}
+                  </div>
+                )}
+                {goalLoopProgressChips.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {goalLoopProgressChips.map((chip) => (
+                      <span
+                        key={chip}
+                        className="rounded-full border border-border/50 bg-background/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                      >
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {goalLoopResumePromptPreview && (
+                  <div
+                    className="mt-1 truncate text-muted-foreground"
+                    title={goalLoopResumePrompt ?? undefined}
+                  >
+                    Resume: {goalLoopResumePromptPreview}
+                  </div>
+                )}
+                {goalLoopProgress.pauseReason && (
+                  <div className="mt-1 line-clamp-2 text-amber-700">
+                    {goalLoopProgress.pauseReason}
+                  </div>
+                )}
+              </div>
+              {activeGoalLoopId && (
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => void onPauseGoalLoop?.()}
+                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                    title="Pause goal"
+                  >
+                    <Pause className="h-3.5 w-3.5" />
+                    <span className="sr-only">Pause goal</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void onResumeGoalLoop?.()}
+                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                    title="Resume goal"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                    <span className="sr-only">Resume goal</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void onCancelGoalLoop?.()}
+                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-background hover:text-destructive"
+                    title="Cancel goal"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    <span className="sr-only">Cancel goal</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <ChatInput
           input={input}
           status={status}
@@ -233,6 +424,10 @@ export const ChatFooter: FC<ChatFooterProps> = ({
           onToggleTab={onToggleTab}
           onTabMentionOpenChange={setIsTabMentionOpen}
           voice={voice}
+          attachments={attachments}
+          onAttachmentsChange={onAttachmentsChange}
+          attachmentsEnabled={attachmentsEnabled}
+          onCompact={onCompactConversation}
           ref={chatInputRef}
         />
       </div>

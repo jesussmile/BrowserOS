@@ -8,10 +8,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { PATHS } from '@browseros/shared/constants/paths'
 import { Command, InvalidArgumentError } from 'commander'
 import { z } from 'zod'
 
 import { INLINED_ENV, REQUIRED_FOR_PRODUCTION } from './env'
+import { getDefaultStorageRoot } from './lib/browseros-dir'
 import { VERSION } from './version'
 
 const portSchema = z.number().int()
@@ -22,7 +24,9 @@ export const ServerConfigSchema = z.object({
   agentPort: portSchema,
   extensionPort: portSchema.nullable(),
   resourcesDir: z.string(),
+  storageRoot: z.string(),
   executionDir: z.string(),
+  outputsDir: z.string(),
   mcpAllowRemote: z.boolean(),
   codegenServiceUrl: z.string().optional(),
   instanceClientId: z.string().optional(),
@@ -61,11 +65,13 @@ export function loadServerConfig(
   const runtimeEnv = parseRuntimeEnv()
 
   // 4. Merge: Defaults < Env < File < CLI
-  const merged = mergeConfigs(
-    getDefaults(cli.value.cwd),
-    runtimeEnv,
-    file.value,
-    cli.value.overrides,
+  const merged = applyDerivedStorageDirs(
+    mergeConfigs(
+      getDefaults(cli.value.cwd),
+      runtimeEnv,
+      file.value,
+      cli.value.overrides,
+    ),
   )
 
   // 5. Add build-time inlined values
@@ -95,11 +101,12 @@ export function loadServerConfig(
 
 function parseCliArgs(argv: string[]): ConfigResult<ParsedCliArgs> {
   const program = new Command()
+  const cliArgs = normalizeCliArgs(argv)
 
   try {
     program
       .name('browseros-server')
-      .description('BrowserOS Unified Server - MCP + Agent')
+      .description('PannamOS Unified Server - MCP + Agent')
       .version(VERSION)
       .option('--config <path>', 'Path to JSON configuration file')
       .option(
@@ -125,8 +132,21 @@ function parseCliArgs(argv: string[]): ConfigResult<ParsedCliArgs> {
       )
       .option('--resources-dir <path>', 'Resources directory path')
       .option(
+        '--storage-root <path>',
+        'PannamOS storage root for profile-adjacent local state',
+      )
+      .option(
+        '--pannamos-storage-root <path>',
+        'PannamOS storage root for profile-adjacent local state',
+      )
+      .option(
         '--execution-dir <path>',
         'Execution directory for logs and configs',
+      )
+      .option('--outputs-dir <path>', 'PannamOS generated outputs directory')
+      .option(
+        '--pannamos-outputs-dir <path>',
+        'PannamOS generated outputs directory',
       )
       .option(
         '--allow-remote-in-mcp',
@@ -143,7 +163,7 @@ function parseCliArgs(argv: string[]): ConfigResult<ParsedCliArgs> {
         }
         throw err
       })
-      .parse(argv)
+      .parse(cliArgs, { from: 'user' })
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e)
     return { ok: false, error: message }
@@ -179,13 +199,39 @@ function parseCliArgs(argv: string[]): ConfigResult<ParsedCliArgs> {
         resourcesDir: opts.resourcesDir
           ? toAbsolutePath(opts.resourcesDir, cwd)
           : undefined,
+        storageRoot: opts.storageRoot
+          ? toAbsolutePath(opts.storageRoot, cwd)
+          : opts.pannamosStorageRoot
+            ? toAbsolutePath(opts.pannamosStorageRoot, cwd)
+            : undefined,
         executionDir: opts.executionDir
           ? toAbsolutePath(opts.executionDir, cwd)
           : undefined,
+        outputsDir: opts.outputsDir
+          ? toAbsolutePath(opts.outputsDir, cwd)
+          : opts.pannamosOutputsDir
+            ? toAbsolutePath(opts.pannamosOutputsDir, cwd)
+            : undefined,
         mcpAllowRemote: opts.allowRemoteInMcp || undefined,
       }),
     },
   }
+}
+
+function normalizeCliArgs(argv: string[]): string[] {
+  if (argv.length === 0 || argv[0]?.startsWith('-')) return argv
+
+  const first = path.basename(argv[0] ?? '').toLowerCase()
+  const second = argv[1]
+  const firstIsRuntime = first === 'bun' || first === 'bun.exe'
+
+  if (firstIsRuntime) return argv.slice(2)
+
+  if (second && !second.startsWith('-') && /\.[cm]?[jt]sx?$/.test(second)) {
+    return argv.slice(2)
+  }
+
+  return argv.slice(1)
 }
 
 function parsePortArg(value: string): number {
@@ -221,7 +267,12 @@ function parseConfigFile(filePath?: string): ConfigResult<PartialConfig> {
         serverPort: cfg.ports?.server ?? cfg.ports?.http_mcp,
         extensionPort: cfg.ports?.extension,
         resourcesDir: parseAbsolutePath(cfg.directories?.resources, configDir),
+        storageRoot: parseAbsolutePath(
+          cfg.directories?.storage_root,
+          configDir,
+        ),
         executionDir: parseAbsolutePath(cfg.directories?.execution, configDir),
+        outputsDir: parseAbsolutePath(cfg.directories?.outputs, configDir),
         mcpAllowRemote:
           cfg.flags?.allow_remote_in_mcp === true ? true : undefined,
         aiSdkDevtoolsEnabled:
@@ -265,8 +316,14 @@ function parseRuntimeEnv(): PartialConfig {
     resourcesDir: process.env.BROWSEROS_RESOURCES_DIR
       ? toAbsolutePath(process.env.BROWSEROS_RESOURCES_DIR, cwd)
       : undefined,
+    storageRoot: process.env.PANNAMOS_STORAGE_ROOT
+      ? toAbsolutePath(process.env.PANNAMOS_STORAGE_ROOT, cwd)
+      : undefined,
     executionDir: process.env.BROWSEROS_EXECUTION_DIR
       ? toAbsolutePath(process.env.BROWSEROS_EXECUTION_DIR, cwd)
+      : undefined,
+    outputsDir: process.env.PANNAMOS_OUTPUTS_DIR
+      ? toAbsolutePath(process.env.PANNAMOS_OUTPUTS_DIR, cwd)
       : undefined,
     instanceInstallId: process.env.BROWSEROS_INSTALL_ID,
     instanceClientId: process.env.BROWSEROS_CLIENT_ID,
@@ -302,7 +359,7 @@ function getDefaults(cwd: string): PartialConfig {
     cdpPort: null,
     extensionPort: null,
     resourcesDir: cwd,
-    executionDir: cwd,
+    storageRoot: getDefaultStorageRoot(),
     mcpAllowRemote: false,
     aiSdkDevtoolsEnabled: false,
   }
@@ -338,4 +395,17 @@ function toAbsolutePath(target: string, baseDir: string): string {
 function parseAbsolutePath(val: unknown, baseDir: string): string | undefined {
   if (typeof val !== 'string') return undefined
   return toAbsolutePath(val, baseDir)
+}
+
+function applyDerivedStorageDirs(config: PartialConfig): PartialConfig {
+  const storageRoot = config.storageRoot ?? getDefaultStorageRoot()
+  return {
+    ...config,
+    storageRoot,
+    executionDir:
+      config.executionDir ??
+      path.join(storageRoot, PATHS.SERVER_STATE_DIR_NAME),
+    outputsDir:
+      config.outputsDir ?? path.join(storageRoot, PATHS.OUTPUTS_DIR_NAME),
+  }
 }

@@ -115,6 +115,15 @@ export const providerFormSchema = z
     reasoningSummary: z.enum(['auto', 'concise', 'detailed']).optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.type === 'browseros') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Upstream cloud provider is disabled in this private build',
+        path: ['type'],
+      })
+      return
+    }
+
     // Azure: require either resourceName or baseUrl
     if (data.type === 'azure') {
       if (!data.resourceName && !data.baseUrl) {
@@ -156,7 +165,7 @@ export const providerFormSchema = z
         })
       }
     }
-    // OAuth providers: no credentials needed (server-managed)
+    // OAuth providers: tokens are handled by the local provider flow.
     else if (
       data.type === 'chatgpt-pro' ||
       data.type === 'github-copilot' ||
@@ -495,14 +504,17 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
   }
 
   const providerTemplate = getProviderTemplate(watchedType as ProviderType)
-  const setupGuideUrl = providerTemplate?.setupGuideUrl
+  const setupGuideUrl =
+    providerTemplate?.setupGuideUrl ?? providerTemplate?.apiKeyUrl
   const providerName = providerTemplate?.name
   const setupGuideText =
     watchedType === 'moonshot'
       ? 'How to get a Kimi API key'
-      : providerName
-        ? `${providerName} setup guide`
-        : 'Provider setup guide'
+      : providerTemplate?.apiKeyUrl && !providerTemplate?.setupGuideUrl
+        ? `${providerName} API key page`
+        : providerName
+          ? `${providerName} setup guide`
+          : 'Provider setup guide'
 
   const handleSetupGuideClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -518,7 +530,8 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
       const name = watchedType === 'github-copilot' ? 'GitHub' : 'Qwen Code'
       return (
         <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-green-700 text-sm dark:border-green-800 dark:bg-green-950 dark:text-green-300">
-          Credentials are managed via {name} OAuth. No API key needed.
+          Credentials are managed by the local {name} account login flow on this
+          PC. No API key is required.
         </div>
       )
     }
@@ -527,7 +540,8 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
       return (
         <>
           <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-green-700 text-sm dark:border-green-800 dark:bg-green-950 dark:text-green-300">
-            Credentials are managed via OAuth. No API key needed.
+            Credentials are managed by the local ChatGPT account login flow on
+            this PC. No API key is required.
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
@@ -791,7 +805,7 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
           <DialogDescription>
             {initialValues?.id
               ? 'Update your LLM provider configuration.'
-              : 'Add a new LLM provider configuration with API key and model settings.'}
+              : 'Add a ChatGPT account login or an API provider with model settings.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

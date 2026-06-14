@@ -64,10 +64,8 @@ export const AddManagedMCPDialog: FC<AddManagedMCPDialogProps> = ({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add built-in app</DialogTitle>
-          <DialogDescription>
-            Select a built-in app to connect
-          </DialogDescription>
+          <DialogTitle>Add app catalog entry</DialogTitle>
+          <DialogDescription>Select an app to save locally</DialogDescription>
         </DialogHeader>
 
         <div className="relative">

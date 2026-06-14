@@ -56,7 +56,7 @@ index 0000000000000..3b121ed6f6635
 +  // Bundled resources directory (fallback).
 +  base::FilePath fallback_resources;
 +
-+  // Runtime data directory (~/.browseros or equivalent).
++  // Runtime data directory (~/.pannamos or equivalent).
 +  base::FilePath execution;
 +
 +  // Returns true if required paths are set.

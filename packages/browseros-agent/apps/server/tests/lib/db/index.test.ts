@@ -5,26 +5,24 @@
 
 import { afterEach, describe, expect, it } from 'bun:test'
 import { existsSync, mkdtempSync } from 'node:fs'
-import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { closeDb, initializeDb } from '../../../src/lib/db'
 import { agentDefinitions } from '../../../src/lib/db/schema'
+import { rmTempDirs } from '../../__helpers__/rm-temp-dir'
 
 describe('database initialization', () => {
   const tempDirs: string[] = []
 
   afterEach(async () => {
     closeDb()
-    await Promise.all(
-      tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
-    )
+    await rmTempDirs(tempDirs)
     tempDirs.length = 0
   })
 
   it('creates the parent directory, opens sqlite, and runs migrations', () => {
     const dir = mkTempDir()
-    const dbPath = join(dir, 'nested', 'browseros.sqlite')
+    const dbPath = join(dir, 'nested', 'pannamos.sqlite')
 
     const handle = initializeDb({ dbPath })
     const rows = handle.db.select().from(agentDefinitions).all()
@@ -35,7 +33,7 @@ describe('database initialization', () => {
 
   it('is idempotent when initialized twice for the same path', () => {
     const dir = mkTempDir()
-    const dbPath = join(dir, 'browseros.sqlite')
+    const dbPath = join(dir, 'pannamos.sqlite')
 
     const first = initializeDb({ dbPath })
     const second = initializeDb({ dbPath })
@@ -48,7 +46,7 @@ describe('database initialization', () => {
 
     expect(() =>
       initializeDb({
-        dbPath: join(dir, 'browseros.sqlite'),
+        dbPath: join(dir, 'pannamos.sqlite'),
         migrationsDir: join(dir, 'missing-migrations'),
       }),
     ).toThrow(/Drizzle migrations directory not found/)

@@ -2,14 +2,14 @@
  * @license
  * Copyright 2025 BrowserOS
  *
- * Low-level BrowserOS process management.
+ * Low-level PannamOS process management.
  * Use setup.ts:ensureBrowserOS() for the full test environment.
  */
 import type { ChildProcess } from 'node:child_process'
 import { spawn, spawnSync } from 'node:child_process'
 import { rmSync } from 'node:fs'
 
-const TEST_USER_DATA_PREFIX = 'browseros-test-'
+const TEST_USER_DATA_PREFIX = 'pannamos-test-'
 
 export interface BrowserConfig {
   cdpPort: number
@@ -61,9 +61,25 @@ export function getBrowserState(): BrowserState | null {
 }
 
 function killOrphanedTestBrowsers(): void {
-  // Matches only BrowserOS processes launched with a test user-data-dir
-  // (e.g., /var/folders/.../browseros-test-XXXX). Never matches a dev
-  // BrowserOS run from ~/Library/Application Support/BrowserOS.
+  // Matches only PannamOS processes launched with a test user-data-dir
+  // (e.g., /var/folders/.../pannamos-test-XXXX). Never matches a dev
+  // PannamOS run from ~/Library/Application Support/PannamOS.
+  if (process.platform === 'win32') {
+    const result = spawnSync('powershell.exe', [
+      '-NoProfile',
+      '-Command',
+      [
+        'Get-CimInstance Win32_Process',
+        `Where-Object { $_.CommandLine -like '*${TEST_USER_DATA_PREFIX}*' -and ($_.Name -like 'chrome*' -or $_.Name -like 'PannamOS*' -or $_.Name -like 'BrowserOS*' -or $_.Name -like 'chromium*') }`,
+        'ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }',
+      ].join(' | '),
+    ])
+    if (result.status === 0) {
+      console.log('Killed orphaned test browsers from a previous run')
+    }
+    return
+  }
+
   const result = spawnSync('pkill', ['-9', '-f', TEST_USER_DATA_PREFIX])
   if (result.status === 0) {
     console.log('Killed orphaned test browsers from a previous run')
@@ -87,7 +103,7 @@ export async function spawnBrowser(
 
   killOrphanedTestBrowsers()
 
-  console.log(`Starting BrowserOS on CDP port ${config.cdpPort}...`)
+  console.log(`Starting PannamOS on CDP port ${config.cdpPort}...`)
   const browserProcess = spawn(
     config.binaryPath,
     [
@@ -95,7 +111,7 @@ export async function spawnBrowser(
       '--no-default-browser-check',
       '--use-mock-keychain',
       '--show-component-extension-options',
-      // Match the supported dev/eval launch path and keep legacy BrowserOS
+      // Match the supported dev/eval launch path and keep legacy upstream
       // extensions from trying to talk to the removed controller bridge.
       '--disable-browseros-extensions',
       '--browseros-dock-icon=dev',
@@ -129,18 +145,23 @@ export async function spawnBrowser(
   })
 
   browserProcess.on('error', (error) => {
-    console.error('Failed to start BrowserOS:', error)
+    console.error('Failed to start PannamOS:', error)
   })
-
-  console.log('Waiting for CDP to be ready...')
-  await waitForCdp(config.cdpPort)
-  console.log('CDP is ready')
 
   browserState = {
     process: browserProcess,
     userDataDir: config.userDataDir,
     config,
   }
+
+  console.log('Waiting for CDP to be ready...')
+  try {
+    await waitForCdp(config.cdpPort)
+  } catch (error) {
+    await killBrowser()
+    throw error
+  }
+  console.log('CDP is ready')
   return browserState
 }
 
@@ -149,22 +170,36 @@ export async function killBrowser(): Promise<void> {
     return
   }
 
-  console.log('Shutting down BrowserOS...')
-  browserState.process.kill('SIGTERM')
+  console.log('Shutting down PannamOS...')
+  if (process.platform === 'win32' && browserState.process.pid) {
+    spawnSync('taskkill.exe', [
+      '/PID',
+      String(browserState.process.pid),
+      '/T',
+      '/F',
+    ])
+  } else {
+    browserState.process.kill('SIGTERM')
+  }
 
-  await new Promise<void>((resolve) => {
-    const timeout = setTimeout(() => {
-      browserState?.process.kill('SIGKILL')
-      resolve()
-    }, 5000)
+  if (
+    browserState.process.exitCode === null &&
+    browserState.process.signalCode === null
+  ) {
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => {
+        browserState?.process.kill('SIGKILL')
+        resolve()
+      }, 5000)
 
-    browserState?.process.on('exit', () => {
-      clearTimeout(timeout)
-      resolve()
+      browserState?.process.on('exit', () => {
+        clearTimeout(timeout)
+        resolve()
+      })
     })
-  })
+  }
 
-  console.log('BrowserOS stopped')
+  console.log('PannamOS stopped')
 
   if (browserState.userDataDir) {
     console.log(`Cleaning up temp profile: ${browserState.userDataDir}`)

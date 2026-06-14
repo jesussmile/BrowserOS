@@ -2,15 +2,23 @@ diff --git a/chrome/installer/mini_installer/chrome.release b/chrome/installer/m
 index 0f331c3e0f2a3..e16dcd326b97f 100644
 --- a/chrome/installer/mini_installer/chrome.release
 +++ b/chrome/installer/mini_installer/chrome.release
-@@ -63,6 +63,12 @@ PrivacySandboxAttestationsPreloaded\privacy-sandbox-attestations.dat: %(VersionD
+@@ -63,6 +63,20 @@ PrivacySandboxAttestationsPreloaded\privacy-sandbox-attestations.dat: %(VersionD
  MEIPreload\manifest.json: %(VersionDir)s\MEIPreload\
  MEIPreload\preloaded_data.pb: %(VersionDir)s\MEIPreload\
  
 +#
-+# BrowserOS Server
++# PannamOS Server
 +#
-+BrowserOSServer\default\resources\*.*: %(VersionDir)s\BrowserOSServer\default\resources\
-+BrowserOSServer\default\resources\bin\*.*: %(VersionDir)s\BrowserOSServer\default\resources\bin\
++PannamOSServer\default\resources\*.*: %(VersionDir)s\PannamOSServer\default\resources\
++PannamOSServer\default\resources\bin\*.*: %(VersionDir)s\PannamOSServer\default\resources\bin\
++PannamOSServer\default\resources\db\migrations\*.sql: %(VersionDir)s\PannamOSServer\default\resources\db\migrations\
++PannamOSServer\default\resources\db\migrations\meta\*.json: %(VersionDir)s\PannamOSServer\default\resources\db\migrations\meta\
++
++#
++# PannamOS bundled agent extension
++#
++browseros_extensions\*.crx: %(VersionDir)s\browseros_extensions\
++browseros_extensions\bundled_extensions.json: %(VersionDir)s\browseros_extensions\
 +
  #
  # IWA Key Distribution

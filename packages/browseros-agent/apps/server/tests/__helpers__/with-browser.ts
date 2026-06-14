@@ -1,3 +1,4 @@
+import { afterAll } from 'bun:test'
 import { existsSync } from 'node:fs'
 import { Mutex } from 'async-mutex'
 import { CdpBackend } from '../../src/browser/backends/cdp'
@@ -17,34 +18,52 @@ let runtimePlan: TestRuntimePlan | null = null
 async function getOrCreateBrowser(): Promise<Browser> {
   if (cachedBrowser && cachedCdp?.isConnected()) return cachedBrowser
 
-  if (runtimePlan && !existsSync(runtimePlan.userDataDir)) {
-    runtimePlan = null
+  let lastError: unknown
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (runtimePlan && !existsSync(runtimePlan.userDataDir)) {
+      runtimePlan = null
+    }
+
+    if (!runtimePlan) {
+      runtimePlan = await createTestRuntimePlan({
+        ignoreFixedPorts: attempt > 0,
+      })
+    }
+
+    if (runtimePlan.usesFixedPorts) {
+      await killProcessOnPort(runtimePlan.ports.cdp)
+    }
+
+    const config: BrowserConfig = {
+      cdpPort: runtimePlan.ports.cdp,
+      serverPort: runtimePlan.ports.server,
+      extensionPort: runtimePlan.ports.extension,
+      binaryPath: runtimePlan.binaryPath,
+      userDataDir: runtimePlan.userDataDir,
+      headless: runtimePlan.headless,
+      extraArgs: runtimePlan.extraArgs,
+    }
+
+    try {
+      await spawnBrowser(config)
+
+      cachedCdp = new CdpBackend({ port: runtimePlan.ports.cdp })
+      await cachedCdp.connect()
+
+      cachedBrowser = new Browser(cachedCdp)
+      return cachedBrowser
+    } catch (error) {
+      lastError = error
+      await killBrowser()
+      cachedCdp = null
+      cachedBrowser = null
+      runtimePlan = null
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
   }
 
-  if (!runtimePlan) {
-    runtimePlan = await createTestRuntimePlan()
-  }
-
-  if (runtimePlan.usesFixedPorts) {
-    await killProcessOnPort(runtimePlan.ports.cdp)
-  }
-
-  const config: BrowserConfig = {
-    cdpPort: runtimePlan.ports.cdp,
-    serverPort: runtimePlan.ports.server,
-    extensionPort: runtimePlan.ports.extension,
-    binaryPath: runtimePlan.binaryPath,
-    userDataDir: runtimePlan.userDataDir,
-    headless: runtimePlan.headless,
-    extraArgs: runtimePlan.extraArgs,
-  }
-  await spawnBrowser(config)
-
-  cachedCdp = new CdpBackend({ port: runtimePlan.ports.cdp })
-  await cachedCdp.connect()
-
-  cachedBrowser = new Browser(cachedCdp)
-  return cachedBrowser
+  throw lastError
 }
 
 export async function cleanupWithBrowser(): Promise<void> {
@@ -55,6 +74,8 @@ export async function cleanupWithBrowser(): Promise<void> {
     runtimePlan = null
   })
 }
+
+afterAll(cleanupWithBrowser)
 
 export interface WithBrowserContext {
   browser: Browser

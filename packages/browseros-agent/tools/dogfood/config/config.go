@@ -164,7 +164,7 @@ func (c Config) Validate() error {
 	}
 	if info, err := os.Stat(c.BrowserOSAppPath); err != nil {
 		return fmt.Errorf("browseros_app_path: %w", err)
-	} else if info.IsDir() || info.Mode()&0111 == 0 {
+	} else if !isExecutableFile(c.BrowserOSAppPath, info) {
 		return fmt.Errorf("browseros_app_path is not an executable file: %s", c.BrowserOSAppPath)
 	}
 	return nil
@@ -198,7 +198,7 @@ func ExpandTilde(path string, home string) string {
 func DefaultProductionEnv() ProductionEnv {
 	return ProductionEnv{
 		Server: map[string]string{
-			"BROWSEROS_CONFIG_URL": "https://llm.browseros.com/api/browseros-server/config",
+			"BROWSEROS_CONFIG_URL": "",
 			"CODEGEN_SERVICE_URL":  "",
 			"POSTHOG_API_KEY":      "",
 			"SENTRY_DSN":           "",
@@ -216,7 +216,7 @@ func DefaultProductionEnv() ProductionEnv {
 			"R2_ACCOUNT_ID":        "",
 			"R2_ACCESS_KEY_ID":     "",
 			"R2_SECRET_ACCESS_KEY": "",
-			"R2_BUCKET":            "browseros",
+			"R2_BUCKET":            "",
 			"R2_UPLOAD_PREFIX":     "",
 		},
 	}

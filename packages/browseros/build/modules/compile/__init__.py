@@ -7,11 +7,12 @@ This package contains different build strategies:
 - universal: Multi-architecture compilation (macOS universal binaries)
 """
 
-from .standard import CompileModule, build_target
+from .standard import CompileModule, WindowsInstallerCompileModule, build_target
 from .universal import UniversalBuildModule
 
 __all__ = [
     'CompileModule',
+    'WindowsInstallerCompileModule',
     'UniversalBuildModule',
     'build_target',
 ]

@@ -8,6 +8,7 @@ import assert from 'node:assert'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { PATHS } from '@browseros/shared/constants/paths'
 
 import { loadServerConfig } from '../src/config'
 
@@ -25,6 +26,8 @@ describe('loadServerConfig', () => {
     delete process.env.BROWSEROS_EXTENSION_PORT
     delete process.env.BROWSEROS_RESOURCES_DIR
     delete process.env.BROWSEROS_EXECUTION_DIR
+    delete process.env.PANNAMOS_STORAGE_ROOT
+    delete process.env.PANNAMOS_OUTPUTS_DIR
     delete process.env.BROWSEROS_INSTALL_ID
     delete process.env.BROWSEROS_CLIENT_ID
     delete process.env.BROWSEROS_AI_SDK_DEVTOOLS
@@ -79,6 +82,31 @@ describe('loadServerConfig', () => {
       if (!result.ok) return
       assert.strictEqual(result.value.cdpPort, null)
       assert.strictEqual(result.value.extensionPort, null)
+    })
+
+    it('parses Bun compiled executable args', () => {
+      const result = loadServerConfig([
+        'browseros_server.exe',
+        '--cdp-port=9222',
+        '--server-port=9223',
+        '--extension-port=9224',
+      ])
+
+      assert.strictEqual(result.ok, true)
+      if (!result.ok) return
+      assert.strictEqual(result.value.cdpPort, 9222)
+      assert.strictEqual(result.value.serverPort, 9223)
+      assert.strictEqual(result.value.agentPort, 9223)
+      assert.strictEqual(result.value.extensionPort, 9224)
+    })
+
+    it('parses direct user args for tests and embedded callers', () => {
+      const result = loadServerConfig(['--cdp-port=9222', '--server-port=9223'])
+
+      assert.strictEqual(result.ok, true)
+      if (!result.ok) return
+      assert.strictEqual(result.value.cdpPort, 9222)
+      assert.strictEqual(result.value.serverPort, 9223)
     })
 
     it('warns when --extension-port is provided', () => {
@@ -140,6 +168,26 @@ describe('loadServerConfig', () => {
       // agentPort is deprecated - always equals serverPort
       assert.strictEqual(result.value.agentPort, 1111)
       assert.strictEqual(result.value.extensionPort, 3333)
+    })
+
+    it('reads storage root and outputs directory from env', () => {
+      process.env.PANNAMOS_STORAGE_ROOT = path.join(tempDir, 'root')
+      process.env.PANNAMOS_OUTPUTS_DIR = path.join(tempDir, 'outputs')
+
+      const result = loadServerConfig([
+        'bun',
+        'src/index.ts',
+        '--server-port=3000',
+      ])
+
+      assert.strictEqual(result.ok, true)
+      if (!result.ok) return
+      assert.strictEqual(result.value.storageRoot, path.join(tempDir, 'root'))
+      assert.strictEqual(
+        result.value.executionDir,
+        path.join(tempDir, 'root', PATHS.SERVER_STATE_DIR_NAME),
+      )
+      assert.strictEqual(result.value.outputsDir, path.join(tempDir, 'outputs'))
     })
   })
 
@@ -237,7 +285,9 @@ describe('loadServerConfig', () => {
           ports: { http_mcp: 3000, extension: 3002 },
           directories: {
             resources: '../data',
+            storage_root: './pannamos-root',
             execution: './logs',
+            outputs: './generated',
           },
         }),
       )
@@ -251,7 +301,47 @@ describe('loadServerConfig', () => {
       assert.strictEqual(result.ok, true)
       if (!result.ok) return
       assert.strictEqual(result.value.resourcesDir, path.join(tempDir, 'data'))
+      assert.strictEqual(
+        result.value.storageRoot,
+        path.join(subdir, 'pannamos-root'),
+      )
       assert.strictEqual(result.value.executionDir, path.join(subdir, 'logs'))
+      assert.strictEqual(
+        result.value.outputsDir,
+        path.join(subdir, 'generated'),
+      )
+    })
+
+    it('derives execution and outputs directories from storage_root', () => {
+      const configPath = path.join(tempDir, 'config.json')
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          ports: { http_mcp: 3000, extension: 3002 },
+          directories: {
+            storage_root: './pannamos-root',
+          },
+        }),
+      )
+
+      const result = loadServerConfig([
+        'bun',
+        'src/index.ts',
+        `--config=${configPath}`,
+      ])
+
+      assert.strictEqual(result.ok, true)
+      if (!result.ok) return
+      const root = path.join(tempDir, 'pannamos-root')
+      assert.strictEqual(result.value.storageRoot, root)
+      assert.strictEqual(
+        result.value.executionDir,
+        path.join(root, PATHS.SERVER_STATE_DIR_NAME),
+      )
+      assert.strictEqual(
+        result.value.outputsDir,
+        path.join(root, PATHS.OUTPUTS_DIR_NAME),
+      )
     })
 
     it('loads instance metadata from config', () => {
@@ -372,7 +462,7 @@ describe('loadServerConfig', () => {
   })
 
   describe('defaults', () => {
-    it('uses cwd for resourcesDir and executionDir by default', () => {
+    it('uses cwd for resourcesDir and E: storage-derived state by default', () => {
       const result = loadServerConfig([
         'bun',
         'src/index.ts',
@@ -381,8 +471,20 @@ describe('loadServerConfig', () => {
 
       assert.strictEqual(result.ok, true)
       if (!result.ok) return
+      const expectedRoot =
+        process.platform === 'win32'
+          ? PATHS.WINDOWS_STORAGE_ROOT
+          : path.join(os.homedir(), PATHS.BROWSEROS_DIR_NAME)
       assert.strictEqual(result.value.resourcesDir, process.cwd())
-      assert.strictEqual(result.value.executionDir, process.cwd())
+      assert.strictEqual(result.value.storageRoot, expectedRoot)
+      assert.strictEqual(
+        result.value.executionDir,
+        path.join(expectedRoot, PATHS.SERVER_STATE_DIR_NAME),
+      )
+      assert.strictEqual(
+        result.value.outputsDir,
+        path.join(expectedRoot, PATHS.OUTPUTS_DIR_NAME),
+      )
     })
 
     it('defaults mcpAllowRemote to false', () => {

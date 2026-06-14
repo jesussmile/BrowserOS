@@ -12,6 +12,8 @@ import {
   resolveBundledBun,
 } from '../../../src/lib/agents/bundled-bun'
 
+const itWithUnixModeBits = process.platform === 'win32' ? it.skip : it
+
 describe('bundled Bun helpers', () => {
   const tempDirs: string[] = []
 
@@ -35,7 +37,7 @@ describe('bundled Bun helpers', () => {
     )
   })
 
-  it('ignores non-executable bundled Bun files', async () => {
+  itWithUnixModeBits('ignores non-executable bundled Bun files', async () => {
     const resourcesDir = await mkdtemp(join(tmpdir(), 'browseros-bun-'))
     tempDirs.push(resourcesDir)
     const bunPath = join(resourcesDir, 'bin', 'third_party', 'bun')

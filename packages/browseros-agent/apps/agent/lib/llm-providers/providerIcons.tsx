@@ -63,17 +63,17 @@ export const ProviderIcon: FC<ProviderIconProps> = ({
 }
 
 /**
- * BrowserOS branded icon component
+ * PannamOS branded icon component.
  * @public
  */
-export const BrowserOSIcon: FC<{ size?: number; className?: string }> = ({
+export const PannamOSIcon: FC<{ size?: number; className?: string }> = ({
   size = 20,
   className,
 }) => {
   return (
     <img
       src={ProductLogoSvg}
-      alt="BrowserOS"
+      alt="PannamOS"
       width={size}
       height={size}
       className={className}

@@ -1,10 +1,8 @@
 import { storage } from '@wxt-dev/storage'
 import { useEffect, useState } from 'react'
-import { sessionStorage } from '@/lib/auth/sessionStorage'
 import { sendScheduleMessage } from '@/lib/messaging/schedules/scheduleMessages'
 import { createAlarmFromJob } from './createAlarmFromJob'
 import type { ScheduledJob, ScheduledJobRun } from './scheduleTypes'
-import { syncSchedulesToBackend } from './syncSchedulesToBackend'
 
 const getAlarmName = (jobId: string) => `scheduled-job-${jobId}`
 
@@ -162,26 +160,9 @@ export function useScheduledJobRuns() {
 }
 
 export async function syncScheduledJobs(): Promise<void> {
-  const jobs = await scheduledJobStorage.getValue()
-  if (!jobs) return
-
-  const session = await sessionStorage.getValue()
-  const userId = session?.user?.id
-  if (!userId) return
-
-  await syncSchedulesToBackend(jobs, userId)
+  // Private fork default: scheduled jobs remain local in extension storage.
 }
 
 export function setupScheduledJobsSyncToBackend(): () => void {
-  syncScheduledJobs().catch(() => {})
-
-  const unsubscribe = scheduledJobStorage.watch(async () => {
-    try {
-      await syncScheduledJobs()
-    } catch {
-      // Sync failed silently - will retry on next storage change
-    }
-  })
-
-  return unsubscribe
+  return () => {}
 }

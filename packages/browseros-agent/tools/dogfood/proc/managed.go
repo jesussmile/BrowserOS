@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -76,7 +75,7 @@ func (mp *ManagedProc) run(ctx context.Context) {
 		if mp.Cfg.Env != nil {
 			cmd.Env = mp.Cfg.Env
 		}
-		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		configureManagedCommand(cmd)
 
 		stdout, _ := cmd.StdoutPipe()
 		stderr, _ := cmd.StderrPipe()
@@ -97,7 +96,7 @@ func (mp *ManagedProc) run(ctx context.Context) {
 		cancelled := ctx.Err() != nil
 		mp.mu.Unlock()
 		if cancelled {
-			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+			terminateManagedProcess(cmd.Process)
 		}
 
 		var streamWg sync.WaitGroup
@@ -151,11 +150,11 @@ func (mp *ManagedProc) Stop() {
 	mp.mu.Unlock()
 
 	if proc != nil {
-		_ = syscall.Kill(-proc.Pid, syscall.SIGTERM)
+		terminateManagedProcess(proc)
 		select {
 		case <-exited:
 		case <-time.After(5 * time.Second):
-			_ = syscall.Kill(-proc.Pid, syscall.SIGKILL)
+			killManagedProcess(proc)
 			select {
 			case <-exited:
 			case <-time.After(3 * time.Second):
@@ -171,6 +170,6 @@ func (mp *ManagedProc) ForceKill() {
 	mp.mu.Unlock()
 
 	if proc != nil {
-		_ = syscall.Kill(-proc.Pid, syscall.SIGKILL)
+		killManagedProcess(proc)
 	}
 }

@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { BrowserOSAgentRoleSummary } from '@browseros/shared/types/role-aware-agents'
+
 export type AgentAdapter = 'claude' | 'codex' | 'hermes'
 
 export type AgentPermissionMode = 'approve-all'
@@ -20,6 +22,8 @@ export interface AgentDefinition {
   updatedAt: number
   /** Pinned agents float to the top of the rail. Defaulted on read for legacy records. */
   pinned?: boolean
+  /** Optional local role template/custom role used to bootstrap the agent home. */
+  role?: BrowserOSAgentRoleSummary
 }
 
 export interface AgentAdapterDescriptor {

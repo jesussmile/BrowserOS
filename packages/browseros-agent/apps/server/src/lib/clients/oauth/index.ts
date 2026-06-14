@@ -12,7 +12,7 @@ import { OAuthTokenStore } from './token-store'
 
 let tokenManager: OAuthTokenManager | null = null
 
-/** Initializes the process OAuth manager using the BrowserOS Drizzle database. */
+/** Initializes the process OAuth manager using the local PannamOS Drizzle database. */
 export function initializeOAuth(
   db: BrowserOsDatabase,
   browserosId: string,

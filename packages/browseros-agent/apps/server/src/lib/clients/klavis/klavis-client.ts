@@ -40,6 +40,12 @@ export class KlavisClient {
     path: string,
     body?: unknown,
   ): Promise<T> {
+    if (!this.baseUrl) {
+      throw new Error(
+        'Upstream Klavis proxy is disabled in this private local-first build',
+      )
+    }
+
     const controller = new AbortController()
     const timeoutId = setTimeout(
       () => controller.abort(),

@@ -18,6 +18,10 @@ export async function fakeSsh(
   logPath?: string,
 ): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'fake-ssh-'))
+  if (process.platform === 'win32') {
+    return fakeSshForWindows(dir, response, logPath)
+  }
+
   const path = join(dir, 'ssh')
   const body = `#!/usr/bin/env bash
 set -u
@@ -28,5 +32,28 @@ exit ${response.exit ?? 0}
 `
   await writeFile(path, body)
   await chmod(path, 0o755)
+  return path
+}
+
+async function fakeSshForWindows(
+  dir: string,
+  response: FakeSshResponse,
+  logPath?: string,
+): Promise<string> {
+  const path = join(dir, 'ssh.cmd')
+  const scriptPath = join(dir, 'ssh.mjs')
+  const script = `import { appendFileSync } from 'node:fs'
+
+const response = ${JSON.stringify(response)}
+const logPath = ${JSON.stringify(logPath ?? null)}
+const args = process.argv.slice(2)
+
+if (logPath) appendFileSync(logPath, 'ARGS:' + args.join(' ') + '\\n')
+process.stdout.write(response.stdout ?? '')
+process.stderr.write(response.stderr ?? '')
+process.exit(response.exit ?? 0)
+`
+  await writeFile(scriptPath, script)
+  await writeFile(path, `@"${process.execPath}" "${scriptPath}" %*\r\n`)
   return path
 }

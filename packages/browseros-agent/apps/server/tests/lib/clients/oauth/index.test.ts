@@ -5,7 +5,6 @@
 
 import { afterEach, describe, expect, it, spyOn } from 'bun:test'
 import { mkdtempSync } from 'node:fs'
-import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -14,6 +13,7 @@ import {
   shutdownOAuth,
 } from '../../../../src/lib/clients/oauth'
 import { closeDb, initializeDb } from '../../../../src/lib/db'
+import { rmTempDirs } from '../../../__helpers__/rm-temp-dir'
 
 describe('OAuth client setup', () => {
   const tempDirs: string[] = []
@@ -21,17 +21,15 @@ describe('OAuth client setup', () => {
   afterEach(async () => {
     shutdownOAuth()
     closeDb()
-    await Promise.all(
-      tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
-    )
+    await rmTempDirs(tempDirs)
     tempDirs.length = 0
   })
 
-  it('initializes a process token manager backed by the BrowserOS database', () => {
+  it('initializes a process token manager backed by the PannamOS database', () => {
     const dir = mkdtempSync(join(tmpdir(), 'browseros-oauth-index-test-'))
     tempDirs.push(dir)
     const handle = initializeDb({
-      dbPath: join(dir, 'db', 'browseros.sqlite'),
+      dbPath: join(dir, 'db', 'pannamos.sqlite'),
     })
 
     const manager = initializeOAuth(handle.db, 'browseros-1')
@@ -78,7 +76,7 @@ describe('OAuth client setup', () => {
     const dir = mkdtempSync(join(tmpdir(), 'browseros-oauth-index-test-'))
     tempDirs.push(dir)
     return initializeDb({
-      dbPath: join(dir, 'db', 'browseros.sqlite'),
+      dbPath: join(dir, 'db', 'pannamos.sqlite'),
     })
   }
 })

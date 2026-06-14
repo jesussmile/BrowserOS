@@ -2,7 +2,7 @@ import { Check, Loader2, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { BrowserOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
+import { PannamOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { cn } from '@/lib/utils'
 
@@ -60,7 +60,7 @@ export const ProviderCard: FC<ProviderCardProps> = ({
       </div>
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]">
         {isBuiltIn ? (
-          <BrowserOSIcon size={24} />
+          <PannamOSIcon size={24} />
         ) : (
           <ProviderIcon type={provider.type} size={24} />
         )}
@@ -78,25 +78,11 @@ export const ProviderCard: FC<ProviderCardProps> = ({
           )}
         </div>
         <p className="truncate text-muted-foreground text-sm">
-          {isBuiltIn ? (
-            <>
-              BrowserOS-hosted model with strict rate limits.{' '}
-              <a
-                href="https://docs.browseros.com/features/bring-your-own-llm"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-foreground"
-                onClick={(e) => e.stopPropagation()}
-              >
-                Bring your own key
-              </a>{' '}
-              for better performance.
-            </>
-          ) : provider.baseUrl ? (
-            `${provider.modelId} • ${provider.baseUrl}`
-          ) : (
-            provider.modelId
-          )}
+          {isBuiltIn
+            ? 'Legacy upstream-hosted provider disabled in this private build.'
+            : provider.baseUrl
+              ? `${provider.modelId} • ${provider.baseUrl}`
+              : provider.modelId}
         </p>
       </div>
       {!isBuiltIn && (

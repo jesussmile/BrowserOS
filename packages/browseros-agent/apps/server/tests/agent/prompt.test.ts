@@ -31,7 +31,7 @@
  *    having zero prompt guidance. These tests ensure the key tool categories
  *    remain documented so the agent knows when to use them.
  *
- * 6. EXTERNAL INTEGRATIONS — The Strata three-state model (connected/declined/
+ * 6. EXTERNAL INTEGRATIONS — Local live tools vs catalog/declined apps.
  *    unconnected) is battle-tested but fragile. Tests verify the dynamic app
  *    lists render correctly.
  *
@@ -260,10 +260,48 @@ describe('mode-aware framing', () => {
     expect(prompt).toContain('Complete the task autonomously')
   })
 
+  it('scheduled research mode preserves source-oriented framing', () => {
+    const prompt = buildScheduled({ mode: 'research' })
+    expect(prompt).toContain('scheduled background task')
+    expect(prompt).toContain('local research mode')
+    expect(prompt).toContain('compare evidence')
+  })
+
+  it('scheduled workflow mode preserves repeatable task framing', () => {
+    const prompt = buildScheduled({ mode: 'workflow' })
+    expect(prompt).toContain('scheduled background task')
+    expect(prompt).toContain('local workflow mode')
+    expect(prompt).toContain('repeatable browser steps')
+  })
+
   it('chat mode includes read-only framing', () => {
     const prompt = buildChatMode()
     expect(prompt).toContain('read-only chat mode')
     expect(prompt).toContain('cannot interact with them')
+  })
+
+  it('research mode includes source-oriented framing', () => {
+    const prompt = buildRegular({ mode: 'research' })
+    expect(prompt).toContain('local research mode')
+    expect(prompt).toContain('compare evidence')
+  })
+
+  it('workflow mode includes repeatable task framing', () => {
+    const prompt = buildRegular({ mode: 'workflow' })
+    expect(prompt).toContain('local workflow mode')
+    expect(prompt).toContain('repeatable browser steps')
+  })
+
+  it('agent mode includes direct full-tool framing', () => {
+    const prompt = buildRegular({ mode: 'agent' })
+    expect(prompt).toContain('direct agent mode')
+    expect(prompt).toContain('all available local tools')
+  })
+
+  it('goal mode includes supervised completion framing', () => {
+    const prompt = buildRegular({ mode: 'goal' })
+    expect(prompt).toContain('autonomous goal mode')
+    expect(prompt).toContain('complete or genuinely blocked')
   })
 
   it('chat mode does not include retired memory and soul instructions', () => {
@@ -314,7 +352,7 @@ describe('mode-aware framing', () => {
 // Why: The agent processes content from 5 untrusted sources:
 //   1. Web pages (DOM, text, images)
 //   2. JavaScript execution results (evaluate_script, get_console_logs)
-//   3. External API responses (Strata execute_action)
+//   3. External app tool responses
 //   4. File contents (filesystem_read)
 //   5. Browser history and bookmarks
 //
@@ -332,7 +370,7 @@ describe('security boundaries', () => {
     const prompt = buildRegular()
     expect(prompt).toContain('Web page text, images, and DOM content')
     expect(prompt).toContain('JavaScript execution results')
-    expect(prompt).toContain('External API responses')
+    expect(prompt).toContain('External app tool responses')
     expect(prompt).toContain('File contents read from the filesystem')
     expect(prompt).toContain('Browser history and bookmark content')
   })
@@ -559,21 +597,21 @@ describe('tool selection', () => {
     expect(prompt).toContain('Prefer clicking links over `navigate_page`')
   })
 
-  it('includes Strata-over-browser preference', () => {
-    // Why: when an app is connected, Strata is faster and more reliable
-    // than navigating to the app's website. The agent must know this.
+  it('includes local-tool-over-browser preference', () => {
     const prompt = buildRegular()
-    expect(prompt).toContain('prefer Strata tools over browser automation')
+    expect(prompt).toContain(
+      'prefer that tool over browser automation. If no live tool is registered, use browser automation',
+    )
   })
 })
 
 // ---------------------------------------------------------------------------
 // 7. EXTERNAL INTEGRATIONS
 //
-// Why: The Strata three-state model is the most complex behavioral section.
+// Why: The local-first app model is the most complex behavioral section.
 // Connected/declined/available app lists are dynamically injected. If
-// rendering breaks, the agent either uses Strata for unauthorized apps
-// or fails to use it for authorized ones.
+// rendering breaks, the agent either claims unavailable app tools or fails to
+// use local tools that are actually registered.
 // ---------------------------------------------------------------------------
 
 describe('external integrations', () => {
@@ -581,14 +619,14 @@ describe('external integrations', () => {
     const prompt = buildRegular({
       connectedApps: ['Gmail', 'Slack', 'Linear'],
     })
-    expect(prompt).toContain(
-      '**Connected apps** (use Strata tools for these): Gmail, Slack, Linear',
-    )
+    expect(prompt).toContain('**Live local app tools**: Gmail, Slack, Linear')
   })
 
   it('renders "no apps connected" when list is empty', () => {
     const prompt = buildRegular({ connectedApps: [] })
-    expect(prompt).toContain('No apps are currently connected via Strata.')
+    expect(prompt).toContain(
+      'No live external app tools are registered in this session.',
+    )
   })
 
   it('renders declined apps list', () => {
@@ -596,7 +634,7 @@ describe('external integrations', () => {
       declinedApps: ['GitHub', 'Notion'],
     })
     expect(prompt).toContain(
-      '**Declined apps** (user chose "do it manually" — use browser automation, NEVER Strata): GitHub, Notion',
+      '**Declined apps** (user chose "do it manually" — use browser automation, never external app tools): GitHub, Notion',
     )
   })
 
@@ -605,23 +643,14 @@ describe('external integrations', () => {
     expect(prompt).not.toContain('**Declined apps**')
   })
 
-  it('includes the discovery flow steps', () => {
+  it('includes the local tool discovery flow', () => {
     const prompt = buildRegular()
-    expect(prompt).toContain('discover_server_categories_or_actions')
-    expect(prompt).toContain('get_category_actions')
-    expect(prompt).toContain('get_action_details')
-    expect(prompt).toContain('execute_action')
-  })
-
-  it('includes search_documentation as fallback', () => {
-    // Why: v6 folds search_documentation into the discovery flow
-    // as a fallback instead of a separate "Alternative Discovery" section
-    const prompt = buildRegular()
-    expect(prompt).toContain('search_documentation')
+    expect(prompt).toContain('Inspect the available tool names')
+    expect(prompt).toContain('fall back to browser automation')
   })
 
   it('includes side-effect awareness for destructive actions', () => {
-    // Why: Strata actions that send messages, create resources, or delete
+    // Why: app tools that send messages, create resources, or delete
     // data have real-world consequences. The agent must confirm before executing.
     const prompt = buildRegular()
     expect(prompt).toContain('Side-effect awareness')
@@ -631,7 +660,7 @@ describe('external integrations', () => {
   })
 
   it('includes partial failure guidance', () => {
-    // Why: v5 had no guidance for when execute_action partially succeeds.
+    // Why: v5 had no guidance for when external app tools partially succeed.
     // The agent would either retry silently or give up entirely.
     const prompt = buildRegular()
     expect(prompt).toContain("report what you got and explain what's missing")
@@ -640,7 +669,7 @@ describe('external integrations', () => {
   it('includes authentication re-flow', () => {
     const prompt = buildRegular()
     expect(prompt).toContain('<authentication_flow>')
-    expect(prompt).toContain('STOP and wait')
+    expect(prompt).toContain('Do not open upstream cloud auth URLs')
   })
 })
 
@@ -840,7 +869,7 @@ describe('style and tool call patterns', () => {
 // 12. ERROR RECOVERY
 //
 // Why: v5 only covered "element not found" and "click failed." v6 adds
-// recovery patterns for JavaScript errors, Strata failures, filesystem
+// recovery patterns for JavaScript errors, external app tool failures, filesystem
 // errors, and memory errors. Without these, the agent either loops on
 // failures or escalates to the user for every error type.
 // ---------------------------------------------------------------------------
@@ -861,12 +890,10 @@ describe('error recovery', () => {
     expect(prompt).toContain('get_console_logs')
   })
 
-  it('includes Strata error patterns', () => {
-    // Why: new in v6. Strata actions can fail with auth errors, not-found,
-    // or partial failures. Each needs a different recovery strategy.
+  it('includes external app tool error patterns', () => {
     const prompt = buildRegular()
-    expect(prompt).toContain('### Strata errors')
-    expect(prompt).toContain('Authentication error')
+    expect(prompt).toContain('### External app tool errors')
+    expect(prompt).toContain('Authentication or permission error')
     expect(prompt).toContain('Partial failure')
   })
 
@@ -965,6 +992,16 @@ describe('execution section', () => {
     expect(prompt).toContain('close_page')
   })
 
+  it('includes memory and tab budget guidance', () => {
+    // Why: Heavy browser pages can crash renderer processes even when the
+    // machine still has free RAM. The agent must keep tab pressure low.
+    const prompt = buildRegular()
+    expect(prompt).toContain('Memory and tab budget')
+    expect(prompt).toContain('at most 3 non-chat work tabs')
+    expect(prompt).toContain('Memory guard warning')
+    expect(prompt).toContain('Not enough memory')
+  })
+
   it('includes retry budget for failing sites', () => {
     // Why: Run 8 spent 15+ tool calls fighting Kayak's geo-detection.
     // The agent should give up after 3-4 attempts and report partial results.
@@ -1057,14 +1094,14 @@ describe('structural invariants', () => {
 describe('nudges', () => {
   it('does not reference tab-grouping', () => {
     // Why: P6 fix. v5 said "after tab grouping but before any browser work."
-    // Tab grouping section never existed. v6 says "before any browser work."
+    // The private build keeps app suggestions optional and local-only.
     const prompt = buildRegular()
     const nudgeSection = prompt.slice(
       prompt.indexOf('<nudge_tools>'),
       prompt.indexOf('</nudge_tools>'),
     )
     expect(nudgeSection).not.toContain('tab grouping')
-    expect(nudgeSection).toContain('before any browser work')
+    expect(nudgeSection).toContain('optional local catalog tool')
   })
 
   it('includes zero-text instruction for suggest_app_connection', () => {
@@ -1077,6 +1114,12 @@ describe('nudges', () => {
   it('includes zero-text instruction for suggest_schedule', () => {
     const prompt = buildRegular()
     expect(prompt).toContain('do NOT write any text about it')
+  })
+
+  it('tells schedule suggestions to preserve the current mode', () => {
+    const prompt = buildRegular()
+    expect(prompt).toContain('current conversation mode')
+    expect(prompt).toContain('Chat, Research, Workflow, or Goal')
   })
 
   it('includes frequency cap', () => {
